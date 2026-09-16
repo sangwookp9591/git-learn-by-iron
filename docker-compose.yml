@@ -1,0 +1,50 @@
+# 로컬에서 학습 환경을 띄운다.
+#
+#   git pull
+#   docker compose up
+#   → http://localhost:5173
+#
+# 학습 기록은 ./data/progress.db(SQLite)에 남는다. 컨테이너를 내렸다
+# 다시 올려도 이전 결과가 그대로 보인다.
+
+services:
+  # 레슨 러너 (브라우저에서 도는 화면)
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: npx vite --host 0.0.0.0 --port 5173
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules   # 호스트 node_modules가 덮어쓰지 않게 분리
+    environment:
+      VITE_PROGRESS_API: http://localhost:4000
+    depends_on:
+      progress:
+        condition: service_healthy
+
+  # 학습 기록 서버 (SQLite에 이전 결과를 남긴다)
+  progress:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: node --experimental-sqlite docker/progress-server.mjs
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    environment:
+      PROGRESS_DB: /app/data/progress.db
+      PROGRESS_PORT: "4000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  node_modules:
