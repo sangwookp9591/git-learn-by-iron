@@ -1,0 +1,36 @@
+{
+  "results": [
+    {
+      "id": "first-branch",
+      "steps": 4,
+      "screenshot": "/Users/iron/orca/projects/gitlearn/src/ui/evidence/first-branch-completed.png",
+      "summary": "4 / 4 단계 통과\n커밋 5개 · 남겨 둔 변경 0개"
+    },
+    {
+      "id": "first-commit-convention",
+      "steps": 5,
+      "screenshot": "/Users/iron/orca/projects/gitlearn/src/ui/evidence/first-commit-convention-completed.png",
+      "summary": "5 / 5 단계 통과\n커밋 6개 · 남겨 둔 변경 0개"
+    },
+    {
+      "id": "split-commits",
+      "steps": 4,
+      "screenshot": "/Users/iron/orca/projects/gitlearn/src/ui/evidence/split-commits-completed.png",
+      "summary": "4 / 4 단계 통과\n커밋 6개 · 남겨 둔 변경 0개"
+    },
+    {
+      "id": "force-push-recovery",
+      "steps": 4,
+      "screenshot": "/Users/iron/orca/projects/gitlearn/src/ui/evidence/force-push-recovery-completed.png",
+      "summary": "4 / 4 단계 통과\n커밋 6개 · 남겨 둔 변경 0개"
+    }
+  ],
+  "lost": [
+    "33bec18",
+    "2006aec",
+    "7c8eb1f"
+  ],
+  "errors": [],
+  "verifiedAt": "2026-09-16 06:21:59 UTC",
+  "entryUrl": "http://127.0.0.1:4173/"
+}

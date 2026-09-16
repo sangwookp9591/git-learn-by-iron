@@ -1,28 +1,90 @@
-# 레슨 UI·채점 검증 및 콘텐츠 호환성
+# 레슨 실행·채점 검증
 
-검증일: 2026-09-16. content 파일은 읽기 전용으로 조사했으며 아래 표는 당시 디렉터리를 순회한 스냅샷입니다.
+검증일: 2026-09-16. 대상: `content/lessons/*.yaml` 네 레슨. **기존 UNSUPPORTED 17단계 → 0단계**, 실제 브라우저 17/17단계 통과, 건너뛰기 0건입니다.
 
-## 실행 결과
+## 실행 증거
 
-- PASS: npm test 18건(기존 엔진 10건 + 레슨 8건), npm run build.
-- PASS: 1440px 실제 브라우저에서 두 가지 경로로 3단계 완료 화면 확인.
-- 경로 A: 터미널 git add . → 상태 불일치·복구 안내 확인 → UI − 버튼으로 README.md와 notes.txt 제외 → UI 커밋 → 터미널 git status → 완료.
-- 경로 B: UI + 버튼으로 login.js만 스테이징 → 터미널 커밋 → 완료.
-- 두 경로의 실제 결과: 스테이징 0개, dirty README.md/notes.txt 2개, 커밋 2개, 3/3 단계 통과.
-- PASS: 커밋 전 head.moved 실패 안내, 커밋 후 통과; 브라우저 페이지 오류 및 콘솔 오류 0건.
-- PASS: 다크 모드와 390px 모바일에서 확인, 가로 넘침 없음, 모바일 + 버튼으로 스테이징·통과 확인.
-- PASS: Google Fonts 서체 계산값 IBM Plex Sans KR/IBM Plex Mono, 터미널 배경은 두 모드 모두 rgb(12,19,25).
-- PASS: 콘텐츠 미리보기 전체 단계 건너뛰기, 완료 시 실습 통과가 아닌 미리보기 종료임을 확인.
+| 확인 | 결과 | 증거 |
+| --- | --- | --- |
+| 기존 엔진/레슨 테스트 18건 | PASS | `npm test`, 기존 파일의 테스트 이름·보호 성질 유지 |
+| 신규 테스트 11건 | PASS | `src/lesson/content.test.ts`, 실제 Git 객체와 fake-indexeddb 사용; fetch 차단 |
+| 전체 테스트 | PASS | 29 tests, 29 pass, 0 fail/skip/todo |
+| 타입 검사와 제품 빌드 | PASS | `npm run build` → tsc + Vite 성공 |
+| 실제 브라우저 완주 | PASS | Chromium 152.0.7977.83, 1440×1100, `http://127.0.0.1:4173/` |
+| 콘솔·페이지 오류 | PASS | 완주 스크립트에서 수집한 오류 0건 |
+| 모바일 편집기 | PASS | 390×844, document scrollWidth 375, dialog x=18/width=339; 열기·취소 동작 |
+| 한국어 원문 | PASS | 수정 전 HEAD와 intro/recap/steps.say/hints.say 문자열 비교 동일; SHA-256 회귀 테스트 |
+| 보호된 디자인 파일 | PASS | `src/styles/**`, `docs/design-system.md` diff 없음 |
 
-화면 증거: [완료 화면](../ui/evidence/completed-light.png), [다크 모드](../ui/evidence/workbench-dark.png), [모바일](../ui/evidence/workbench-mobile.png).
+브라우저는 실제 터미널 입력·레슨 선택·상태 확인 버튼·커밋 및 파일 편집기를 조작했습니다. 상태 주입이나 단계 건너뛰기는 사용하지 않았습니다. [재현 스크립트](../ui/evidence/play-lessons.js), [실행 결과 JSON](../ui/evidence/play-results.json).
 
-## 채점 경계
+## 이전 17개 미지원 단계의 해소
 
-단언 평가기는 현재 readState 스냅샷과 단계 시작 스냅샷만 받습니다. 터미널 문자열, UI 클릭 기록, command_used는 판정 입력이 아닙니다. 잘못된 정규식·없는 상태 증거·모르는 단언은 통과시키지 않습니다. catalog의 예제 명령 검사는 작성된 레슨의 지원 가능성만 분류하며 학습자의 명령을 검사하지 않습니다.
+아래 모든 행은 Node 통합 테스트와 브라우저 플레이에서 PASS입니다. `inspectLesson`은 정식 단언과 터미널이 공유하는 명령 옵션 지원표로 분류하며 미지원 명령 검사를 없애지 않았습니다 (`src/lesson/catalog.ts:51`, `src/terminal/run.ts:68`). 별도 테스트에서 `git rebase main` 예제는 여전히 unsupported임을 확인합니다.
 
-## 별칭 매핑
+| 레슨 | 단계 | 실제 확인한 상태/동작 | 결과 |
+| --- | ---: | --- | --- |
+| first-branch | 1 | 확장 fixture 로딩, clean main, origin/main보다 behind 2 | PASS |
+| first-branch | 2 | pull로 원격의 두 객체를 가져와 behind 0, origin/main 추적 | PASS |
+| first-branch | 3 | feature 생성, 현재 브랜치·main tip 도달 가능·attached HEAD | PASS |
+| first-branch | 4 | branch --show-current, clean, main 보존 | PASS |
+| first-commit-convention | 1 | 기능 파일 세 개만 index에 있고 .env.local 제외 | PASS |
+| first-commit-convention | 2 | diff --staged에서 index blob의 실제 추가 코드 확인 | PASS |
+| first-commit-convention | 3 | 브라우저 bare commit 편집기, feat 제목·Refs 꼬리말·변경 파일 | PASS |
+| first-commit-convention | 4 | .gitignore 편집 후 별도 chore 커밋, .env.local ignored·미추적 | PASS |
+| first-commit-convention | 5 | main 제외 커밋 2개, show HEAD/HEAD~1·log -3, clean | PASS |
+| split-commits | 1 | reset --mixed HEAD~1, 코드 보존·index empty·main 제외 1개 | PASS |
+| split-commits | 2 | add -p 내용 편집기로 Validator만 담아 feat+Refs, Controller 제외 | PASS |
+| split-commits | 3 | Controller를 fix+Refs로 별도 커밋, main 제외 3개·clean | PASS |
+| split-commits | 4 | 일반 push non-fast-forward 거부, lease push 성공·ahead/behind 0 | PASS |
+| force-push-recovery | 1 | backup 브랜치 생성, 원래 hotfix tip 보존 | PASS |
+| force-push-recovery | 2 | reflog의 유실 세 해시를 출력에서 찾아 각 show --stat 확인 | PASS |
+| force-push-recovery | 3 | reset 단독 복구는 JAY 유실로 실패; backup 복귀 후 세 cherry-pick으로 양쪽 보존 | PASS |
+| force-push-recovery | 4 | origin 실제 tip=HEAD·ahead 0·clean, backup 삭제 후 완료 | PASS |
 
-| 콘텐츠 별칭 | 정식 단언 |
+## 완료 화면 네 장
+
+| 레슨 | 완료 화면 | 최종 표시 |
+| --- | --- | --- |
+| 첫 티켓, 첫 브랜치 | [first-branch-completed.png](../ui/evidence/first-branch-completed.png) | 4/4, 커밋 5개, 남은 변경 0개 |
+| 첫 커밋과 컨벤션 | [first-commit-convention-completed.png](../ui/evidence/first-commit-convention-completed.png) | 5/5, 커밋 6개, 남은 변경 0개 |
+| 리뷰 요청대로 커밋 쪼개기 | [split-commits-completed.png](../ui/evidence/split-commits-completed.png) | 4/4, 커밋 6개, 남은 변경 0개 |
+| 사라진 커밋 되찾기 | [force-push-recovery-completed.png](../ui/evidence/force-push-recovery-completed.png) | 4/4, 커밋 6개, 남은 변경 0개 |
+
+스크린샷은 실제 픽셀로 확인했습니다. 마지막 브라우저 실행에서 찾은 유실 커밋의 축약 SHA는 `33bec18`, `2006aec`, `7c8eb1f`이며 매 실습의 커밋 시간에 따라 달라집니다. `git reset --hard 7c8eb1f`만 하면 JAY perf 커밋 단언이 실패하고, `backup/before-recovery`로 돌아와 세 해시를 오래된 순서대로 cherry-pick하면 네 커밋 모두 도달 가능합니다.
+
+## 구현 계약과 추가 회귀
+
+- **통일 fixture:** `src/lesson/schema.ts:6`, `src/lesson/catalog.ts:13`, `src/lesson/runner.ts:120`. 평면 `worktree`는 거부하고 모든 fixture는 `working_tree.modified/untracked/staged`를 사용합니다. `at`은 head 또는 유일한 제목 첫 줄을 가리키며 `ahead`는 별도 원격 저장소 위에 쌓습니다.
+- **사고 분기점:** `src/lesson/runner.ts:152`. dangling 세 커밋은 JAY perf 직전 커밋에서 갈라집니다. 기존 fixture의 의도에 대한 coordinator 확인을 반영했으며 `reason`을 실제 reflog 항목에 기록합니다. 세 객체는 초기 HEAD나 로컬 main에서 도달하지 않습니다.
+- **원격:** `src/engine/repo.ts:323`, `src/engine/repo.ts:341`, `src/engine/repo.ts:353`. origin의 실제 Git 객체와 ref를 별도 IndexedDB에 보관합니다. fetch로 HEAD/index/작업 파일이 보존되고 dirty pull이 거부됩니다. 일반 push·force·lease를 각각 검증했습니다. 마지막 fetch 이후 origin을 직접 전진시킨 테스트에서 lease가 stale info로 거부되고 양쪽 상태를 보존합니다. `push -u origin <다른 로컬 브랜치>`도 지정한 브랜치를 올립니다.
+- **reflog·reset·amend:** `src/engine/repo.ts:125`, `src/engine/repo.ts:215`, `src/engine/repo.ts:253`. 원래 SHA가 기록에 남고 축약 SHA/HEAD@{n}/HEAD~n로 복구할 수 있습니다. soft는 index/작업 파일, mixed는 작업 파일을 보존하고 hard는 대상 트리를 복원합니다. amend는 부모 수/이력 길이를 늘리지 않고 메시지·index를 새 커밋으로 반영합니다. 잘못된 해시와 안전하지 않은 경로는 상태 무변경으로 거부합니다.
+- **다른 정답 경로:** `content.test.ts`의 merge recovery는 reflog tip에 recovered 브랜치를 만든 뒤 merge해 같은 복구 단언을 통과합니다. cherry-pick 명령 사용을 채점 조건으로 요구하지 않습니다. 충돌 발생 시 파일을 해결해 add → --continue하는 경로와 --abort로 원래 트리를 복원하는 경로도 실제 검사했습니다.
+- **index 읽기:** 설치된 isomorphic-git의 STAGE walker는 content()를 제공하지 않습니다. index entry의 oid로 실제 blob을 읽도록 수정했고 diff --staged에서 추가된 구현 코드가 보이는 회귀 테스트로 검증했습니다.
+- **부분 스테이징:** `src/engine/repo.ts:245`. `stageContent`는 blob과 index만 수정합니다. 한 파일의 첫 줄만 커밋하고 작업 파일의 두 줄은 유지되는 테스트로 확인했습니다.
+
+커밋·checkout·cherry-pick 구현은 설치된 isomorphic-git 1.42.2 타입/소스 및 공식 [commit](https://isomorphic-git.org/docs/en/commit), [checkout](https://isomorphic-git.org/docs/en/checkout), [cherryPick](https://isomorphic-git.org/docs/en/cherryPick) API를 확인해 사용했습니다.
+
+## 단언과 힌트 경계
+
+`src/engine/state.ts:30`은 refs/config/commit/tree/blob/reflog/작업 파일에서만 스냅샷을 만듭니다. `src/lesson/assert.ts:24`와 `src/lesson/runner.ts:75`의 채점 입력은 현재 및 단계 시작 스냅샷 두 개뿐입니다. 터미널 문자열이나 명령 실행 여부는 채점하지 않습니다. 원격·reflog의 없는 증거는 실패하고, 추적 대상이 없는 head의 ahead/behind는 null입니다.
+
+| 정식 단언 | 상태에서의 의미 |
+| --- | --- |
+| head.ahead / head.behind | upstream과 HEAD의 도달 가능한 SHA 집합 차이 개수 |
+| branch.tracks | 현재 branch의 config에 기록된 upstream 이름 |
+| branch.base | 지정한 로컬 branch tip이 HEAD 이력의 조상인지 |
+| remote.branch_head | 지정한 origin branch의 실제 현재 tip과 HEAD가 같은지 |
+| reflog.contains | 실제 reflog에 연결된 커밋 메시지·설명 포함 또는 SHA 일치 |
+| commit.count_on_branch | HEAD에서 도달하고 main에서는 도달하지 않는 커밋 수 |
+| commit.touches / not_touches | HEAD와 첫 부모의 트리를 비교한 변경 경로 |
+| commit.trailer / trailer_missing | 메시지 마지막 문단의 trailer 행 일치/키 부재 |
+| commit.subject_on_branch / subject_missing | HEAD에서 도달하는 커밋 제목의 부분문자열 존재/부재 |
+| worktree.contains / file_ignored | 실제 작업 파일 존재 / 미추적 파일의 ignore 적용 |
+
+기존 단언 동사는 모두 유지합니다. 아래 별칭은 엔진 호환성을 위해 남겼고 콘텐츠의 assert/when은 정식 이름으로 바꿨습니다. `head.message.matches`는 메시지 전체를 검사하므로 제목 끝 마침표 힌트의 정규식은 첫 줄에 한정하도록 바꿔 기존 의미를 보존했습니다.
+
+| 기존 별칭 | 정식 단언 |
 | --- | --- |
 | index.staged | index.has |
 | index.not_staged | index.lacks |
@@ -30,54 +92,13 @@
 | head.on | branch.current |
 | commit.subject_matches | head.message.matches |
 
-commit.subject_matches는 호환성을 위해 메시지 첫 줄에만 정규식을 적용합니다. commit.count_on_branch는 전체 이력 개수와 의미가 달라 임의로 commit.count에 연결하지 않았습니다.
+`command_used`는 coordinator가 확정한 구분에 따라 **runner에만 있는** 파싱된 명령 기록을 힌트에서 참조합니다 (`src/lesson/runner.ts:21`, `src/lesson/hints.ts:78`). `push_rejected`와 `cherry_pick_conflict`도 힌트용 결과 문맥입니다. 기록/출력은 readState에 없으며, 같은 상태에 서로 다른 명령 기록을 붙여도 채점이 달라지지 않는 회귀를 두었습니다. 이번에 requested로 내린 힌트는 없습니다.
 
-## 미지원 단계 목록
+## 남은 범위와 정직한 한계
 
-현재 content 레슨의 총 17개 단계입니다. 생성된 fixture는 모두 working_tree와 remote 등 별도 계약을 사용하므로 현재 로더는 이를 임의 축약하지 않습니다. 내장 staging-basics 레슨 3단계는 별도 승인된 src/fixtures 계약으로 모두 지원합니다.
-
-| 레슨 파일 | 단계 | 상태 | 이유 |
-| --- | ---: | --- | --- |
-| first-branch.yaml | 1 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day2 |
-| first-branch.yaml | 2 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day2<br>미지원 상태 조건: head.behind, branch.tracks<br>미지원 예제: git pull |
-| first-branch.yaml | 3 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day2<br>미지원 상태 조건: branch.base |
-| first-branch.yaml | 4 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day2<br>미지원 예제: git branch --show-current |
-| first-commit-convention.yaml | 1 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day2-afternoon |
-| first-commit-convention.yaml | 2 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day2-afternoon<br>미지원 예제: git diff --staged |
-| first-commit-convention.yaml | 3 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day2-afternoon<br>미지원 상태 조건: commit.trailer, commit.touches, commit.not_touches<br>미지원 예제: git commit |
-| first-commit-convention.yaml | 4 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day2-afternoon<br>미지원 상태 조건: worktree.file_ignored, commit.touches, commit.not_touches |
-| first-commit-convention.yaml | 5 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day2-afternoon<br>미지원 상태 조건: commit.count_on_branch<br>미지원 예제: git log --oneline -3<br>미지원 예제: git show --stat HEAD<br>미지원 예제: git show --stat HEAD~1 |
-| force-push-recovery.yaml | 1 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-force-push-incident |
-| force-push-recovery.yaml | 2 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-force-push-incident<br>미지원 상태 조건: reflog.contains |
-| force-push-recovery.yaml | 3 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-force-push-incident<br>미지원 상태 조건: commit.subject_on_branch, worktree.contains |
-| force-push-recovery.yaml | 4 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-force-push-incident<br>미지원 상태 조건: remote.branch_head, head.ahead |
-| split-commits.yaml | 1 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day3-review<br>미지원 상태 조건: commit.count_on_branch |
-| split-commits.yaml | 2 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day3-review<br>미지원 상태 조건: commit.count_on_branch, commit.touches, commit.not_touches, commit.trailer |
-| split-commits.yaml | 3 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day3-review<br>미지원 상태 조건: commit.count_on_branch, commit.touches, commit.trailer |
-| split-commits.yaml | 4 | UNSUPPORTED | 현재 로더와 다른 초기 저장소 형식: fixtures/dalro-payments-day3-review<br>미지원 상태 조건: remote.branch_head, head.behind, head.ahead, commit.count_on_branch |
-
-## 정렬 작업에 남은 사항
-
-- content fixture의 working_tree.modified/untracked/staged와 로더의 worktree를 정렬하고, remote·dangling·브랜치 기준 커밋 수를 실제 스냅샷에 반영하는 계약을 정의해야 합니다.
-- 위 표의 Git 기능과 상태 단언은 지원 전까지 unsupported로 유지해야 합니다. 단계 건너뛰기는 점수나 통과로 취급하지 않습니다.
-- content/difficulty.md의 명령 경로 제한 설명은 이번에 승인된 상태 기반 판정 원칙과 다르므로 콘텐츠 정렬 시 수정 대상입니다.
-- 다음 힌트 조건은 데이터나 사건 기록이 없어 자동 평가하지 않습니다. command_used 기반 조건은 상태 기반 대안으로 바꾸어야 합니다.
-
-- `branch.exists("backup/before-recovery") && remote.branch_head("hotfix/PAY-247-expiry-zero-based")`
-- `branch.exists("backup/before-recovery") == false && command_used("reset --hard")`
-- `cherry_pick_conflict`
-- `command_used("push --force")`
-- `commit.count_on_branch != 2`
-- `commit.count_on_branch == 0`
-- `commit.count_on_branch == 1`
-- `commit.subject_missing("perf(payment): 결제 내역 조회 인덱스 추가")`
-- `commit.touches(".env.local")`
-- `commit.touches("src/payment/PaymentController.ts")`
-- `commit.trailer_missing("Refs")`
-- `head.behind > 0`
-- `index.has_staged && commit.count_on_branch == 1`
-- `push_rejected`
-- `worktree.clean == true && commit.count_on_branch == 1`
-- `worktree.file_ignored(".env.local") == false`
-
-이번 범위에서는 content 수정, remote Git, reflog, hunk staging, 이전 커밋 수정, 진행 이어하기를 구현하지 않았습니다. Google Fonts는 요청된 외부 서체 로딩이며 Git 연산은 로컬입니다. 의존성 설치의 npm 감사는 취약점 0건이었으나 별도 Endor 위험 증거는 도구 미제공으로 미확인입니다.
+- 요청한 네 레슨의 미지원 단계와 미완료 acceptance는 **없습니다**. 별도 호스팅 CI·원격 서버·실제 Git 호스팅 push는 수행하지 않았습니다.
+- `git add -p`는 파일의 staging 내용을 직접 편집하는 방식입니다. 원문의 y/n/s 문답·hunk 분할 UI는 구현하지 않았습니다. 현재 split fixture의 Validator에는 문장에서 언급하는 별도 에러 메시지 상수 변경이 없고, Validator와 Controller 파일을 분리하면 작성된 단언과 교육 목적을 만족합니다. fixture와 한국어 원문은 변경하지 않았습니다.
+- 일반 셸과 브라우저 터미널의 `npm test`는 미지원입니다. 고급 힌트의 npm test 문장을 수정하거나 가짜 성공 출력을 반환하지 않았습니다. 이번 PASS는 앱 엔진/채점 회귀와 Git 복구 상태를 검증한 것이며 fixture의 결제 테스트를 브라우저 안에서 실행했다는 주장은 하지 않습니다.
+- diff는 파일 전체 교체 형태이며 show --stat은 변경 파일 목록·파일 수, log --graph는 단순 표시입니다. merge/pull 충돌은 변경 없이 거부하며 복잡한 merge-conflict 편집 UI는 별도 범위입니다. cherry-pick 충돌 복구는 구현·테스트했습니다.
+- `.git/logs/HEAD`에는 유실 커밋이 남지만 네이티브 Git의 reflog 만료/GC는 구현하지 않았습니다. 탭 간 동시 명령은 기존 API와 동일하게 지원하지 않습니다.
+- `src/styles/**`와 디자인 문서는 수정하지 않았습니다. UI의 CSS import 순서와 `src/ui/style.css`의 편집기 규칙만 변경했습니다. 의존성·lockfile 변경도 없습니다.
