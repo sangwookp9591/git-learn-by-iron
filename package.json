@@ -10,12 +10,13 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node --test src/tests/*.test.ts"
+    "test": "node --test src/tests/*.test.ts src/lesson/*.test.ts"
   },
   "dependencies": {
     "@isomorphic-git/lightning-fs": "^4.8.0",
     "buffer": "^6.0.3",
-    "isomorphic-git": "^1.42.2"
+    "isomorphic-git": "^1.42.2",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/node": "^22.20.3",

@@ -1,0 +1,81 @@
+id: staging-basics
+title: 필요한 변경만 골라 담기
+difficulty: 초급
+scenario_beat: 1일차 · 첫 코드 리뷰를 준비하는 오후
+setup: staging-basics.setup.yaml
+intro: |
+  로그인 오류를 고쳤는데, 설명서 수정과 개인 메모도 함께 남아 있어요.
+  JAY 님이 부탁했습니다. “이번에는 로그인 수정만 먼저 보내주세요.”
+  한 번의 커밋에 한 가지 일을 담아 봅시다.
+steps:
+  - say: |
+      login.js만 스테이징하세요.
+
+      소스 컨트롤에서 login.js 옆 + 버튼을 누르거나 터미널에 입력하세요.
+
+          git add login.js
+
+      README.md와 notes.txt는 변경 사항에 남겨두세요.
+    assert:
+      - index.has: login.js
+      - index.lacks: README.md
+      - index.lacks: notes.txt
+      - worktree.dirty: README.md
+      - worktree.dirty: notes.txt
+    hints:
+      - when: index.has(README.md) || index.has(notes.txt)
+        say: |
+          다른 파일도 함께 담겼어요. 스테이징된 변경에서 README.md와
+          notes.txt 옆 − 버튼을 누르면 내용은 그대로 두고 꺼낼 수 있어요.
+      - when: idle(45s)
+        say: |
+          login.js 옆 + 버튼 하나면 됩니다. 터미널에서는 git add login.js를 입력하세요.
+  - say: |
+      담긴 로그인 수정만 커밋하세요.
+
+      메시지는 fix: 빈 이름 로그인 방지로 적어 주세요.
+      소스 컨트롤의 메시지 입력란과 커밋 버튼을 사용해도 됩니다.
+
+          git commit -m "fix: 빈 이름 로그인 방지"
+
+      남겨둔 두 파일은 이번 커밋에 들어가지 않아야 합니다.
+    assert:
+      - head.moved: true
+      - head.message.matches: '^fix: 빈 이름 로그인 방지$'
+      - commit.count: 2
+      - index.empty: true
+      - worktree.dirty: README.md
+      - worktree.dirty: notes.txt
+    hints:
+      - when: idle(45s)
+        say: |
+          소스 컨트롤에서 메시지를 적고 커밋 버튼을 누르세요.
+          메시지와 스테이징한 변경만 새 커밋에 담깁니다.
+  - say: |
+      마지막으로 결과를 살펴보세요.
+
+      그래프에는 새 커밋이 생겼고, README.md와 notes.txt는 여전히
+      변경 사항에 남아 있나요? 두 파일을 남겨 둔 것이 맞습니다.
+
+          git status
+          git log --oneline
+
+      결과를 확인했다면 상태 확인 후 실습을 마치세요.
+    assert:
+      - branch.current: main
+      - branch.exists: main
+      - commit.count: 2
+      - head.message.matches: '^fix: 빈 이름 로그인 방지$'
+      - index.lacks: README.md
+      - index.lacks: notes.txt
+      - worktree.dirty: README.md
+      - worktree.dirty: notes.txt
+    hints:
+      - when: idle(45s)
+        say: |
+          커밋은 2개, 스테이징된 변경은 0개, 남은 변경 사항은 2개면 됩니다.
+          상태 확인 버튼으로 마무리하세요.
+recap: |
+  커밋에는 스테이징한 변경만 들어갑니다.
+  +로 담고 −로 꺼내도, git add와 git restore --staged를 사용해도 결과는 같아요.
+  한 번의 커밋에 한 가지 일을 담으면 리뷰와 되돌리기가 쉬워집니다.

@@ -1,0 +1,23 @@
+commits:
+  - message: 'chore: 로그인 프로젝트 시작'
+    files:
+      login.js: |
+        export function login(user) {
+          return user.name;
+        }
+      README.md: |
+        # 달로 로그인
+        사용자의 이름으로 로그인합니다.
+worktree:
+  login.js: |
+    export function login(user) {
+      if (!user.name.trim()) throw new Error('이름을 입력하세요');
+      return user.name;
+    }
+  README.md: |
+    # 달로 로그인
+    사용자의 이름으로 로그인합니다.
+    빈 이름은 입력할 수 없습니다.
+  notes.txt: |
+    회의 전에 커피 사기
+    개인 메모는 커밋하지 않기

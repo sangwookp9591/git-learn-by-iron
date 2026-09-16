@@ -12,6 +12,7 @@ export interface RepoState {
   worktree: string[];
   head: { sha: string; message: string } | null;
   branch: string | null;
+  branches: string[];
   commits: CommitState[];
   status: StatusRow[];
 }
@@ -30,6 +31,7 @@ export async function readState(repo: LessonRepo): Promise<RepoState> {
     worktree: status.filter(([, , workdir, stage]) => workdir !== stage).map(([path]) => path).sort(),
     head: commits[0] ? { sha: commits[0].sha, message: commits[0].message } : null,
     branch: (await repo.currentBranch()) ?? null,
+    branches: await repo.branch(),
     commits,
     status,
   };
