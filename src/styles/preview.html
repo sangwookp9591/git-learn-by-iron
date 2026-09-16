@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Git Learn · 디자인 시스템</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./base.css">
+  <link rel="stylesheet" href="./components.css">
+  <style>
+    .preview { max-width: 1440px; margin: auto; padding: var(--space-8); }
+    .preview-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-6); margin-bottom: var(--space-8); }
+    .preview-eyebrow { color: var(--color-accent); font-size: var(--text-sm); font-weight: var(--weight-semibold); margin-bottom: var(--space-2); }
+    .preview-subtitle { color: var(--color-text-secondary); margin-top: var(--space-2); }
+    .preview-theme { min-width: 160px; }
+    .preview-workspace, .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    .preview-stack { display: grid; gap: var(--space-4); }
+    .preview-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+    .preview-section { margin-top: var(--space-8); }
+    .preview-section > h2 { margin-bottom: var(--space-4); }
+    .preview-note { color: var(--color-text-secondary); font-size: var(--text-sm); }
+    .preview-graph { display: grid; gap: var(--space-3); list-style: none; margin: 0; padding: 0; }
+    .preview-graph li { display: flex; gap: var(--space-3); align-items: center; }
+    .preview-node { width: 12px; height: 12px; flex: 0 0 12px; border: 2px solid var(--color-text-muted); border-radius: var(--radius-pill); }
+    .preview-node--head { background: var(--color-accent); border-color: var(--color-accent); }
+    .preview-swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-2); }
+    .preview-swatch { padding: var(--space-2); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+    .preview-swatch-color { height: 42px; border: 1px solid var(--color-control-border); border-radius: var(--radius-sm); margin-bottom: var(--space-2); }
+    .preview-swatch code { display: block; font-size: var(--text-xs); }
+    .preview-table-wrap { overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+    .preview-table { width: 100%; border-collapse: collapse; background: var(--color-surface); text-align: left; }
+    .preview-table th, .preview-table td { padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--color-border); }
+    .preview-table th { background: var(--color-surface-subtle); }
+    .preview-table td:last-child { overflow-wrap: anywhere; }
+    .preview-token-sample { display: block; min-width: 32px; }
+    .preview-toast { position: fixed; inset-inline: var(--space-6); bottom: var(--space-6); max-width: 520px; margin-inline: auto; }
+    @media (max-width: 760px) {
+      .preview { padding: var(--space-4); }
+      .preview-header { align-items: start; flex-direction: column; }
+      .preview-workspace, .preview-grid { grid-template-columns: 1fr; }
+      .preview-swatches { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main class="preview">
+    <header class="preview-header">
+      <div><p class="preview-eyebrow">GIT LEARN / DESIGN SYSTEM</p><h1>작업은 선명하게, 화면은 차분하게</h1><p class="preview-subtitle">네 개의 패널, 하나의 작업 흐름. 한국어 Git 학습을 위한 시각 언어.</p></div>
+      <div class="field preview-theme"><label class="field__label" for="theme">화면 테마</label><select class="input" id="theme"><option value="system">시스템 설정</option><option value="light">라이트</option><option value="dark">다크</option></select></div>
+    </header>
+    <section aria-label="4분할 화면 구성 예시" class="preview-workspace">
+      <section class="panel" aria-labelledby="lesson-title">
+        <header class="panel__header"><h2 class="panel__title" id="lesson-title">레슨 지시</h2><span class="chip">02 / 08</span></header>
+        <div class="panel__body preview-stack">
+          <div><p class="preview-eyebrow">CHAPTER 01 · 변경 기록</p><h3>변경한 파일을 커밋해 보세요</h3></div>
+          <p>작업 파일 중 다음 기록에 포함할 변경을 선택합니다. 스테이징 영역을 확인한 뒤 커밋을 남기세요.</p>
+          <div class="card"><h4 class="card__title">현재 할 일</h4><p><code>git add hello.txt</code>로 파일을 스테이징합니다.</p></div>
+          <div class="preview-stack"><label class="preview-note" for="lesson-progress">레슨 진행 · 2 / 4단계</label><progress class="progress" id="lesson-progress" value="2" max="4">50%</progress></div>
+          <div class="preview-row"><button class="button button--primary" id="feedback-button" type="button">피드백 예시 보기</button><button class="button button--quiet" type="button" disabled>다음 레슨</button></div>
+        </div>
+      </section>
+      <section class="panel" aria-labelledby="source-title">
+        <header class="panel__header"><h2 class="panel__title" id="source-title">소스 컨트롤</h2><span class="chip">main</span></header>
+        <div class="panel__body preview-stack">
+          <ul class="list" aria-label="파일 상태">
+            <li class="list-row"><code class="list-row__label">hello.txt</code><span class="badge badge--staged"><span aria-hidden="true">+</span> 스테이징됨</span></li>
+            <li class="list-row"><code class="list-row__label">README.md</code><span class="badge badge--modified"><span aria-hidden="true">M</span> 수정됨</span></li>
+            <li class="list-row"><code class="list-row__label">config.json</code><span class="badge badge--conflict"><span aria-hidden="true">!</span> 충돌</span></li>
+            <li class="list-row"><code class="list-row__label">notes.txt</code><span class="badge badge--untracked"><span aria-hidden="true">?</span> 미추적</span></li>
+          </ul>
+          <div class="field"><label class="field__label" for="commit">커밋 메시지</label><input class="input" id="commit" placeholder="예: feat: 인사말 추가" aria-describedby="commit-hint"><p class="field__hint" id="commit-hint">변경한 내용과 이유를 한 문장으로 적으세요.</p></div>
+          <p class="preview-note">스타일 확인용 예시입니다. 실제 Git 저장소는 변경하지 않습니다.</p>
+        </div>
+      </section>
+      <section class="panel" aria-labelledby="graph-title">
+        <header class="panel__header"><h2 class="panel__title" id="graph-title">커밋 그래프</h2><span class="chip">커밋 3개</span></header>
+        <div class="panel__body"><ol class="preview-graph">
+          <li><span class="preview-node preview-node--head" aria-hidden="true"></span><code>9a41c8e</code><span>인사말 추가</span><span class="chip">HEAD · main</span></li>
+          <li><span class="preview-node" aria-hidden="true"></span><code>5bf0d72</code><span>파일 이름 정리</span></li>
+          <li><span class="preview-node" aria-hidden="true"></span><code>2ca601f</code><span>학습 저장소 시작</span></li>
+        </ol></div>
+      </section>
+      <section class="panel panel--terminal" aria-labelledby="terminal-title">
+        <header class="panel__header"><h2 class="panel__title" id="terminal-title">터미널</h2><code>~/git-learn</code></header>
+        <div class="panel__body"><pre class="terminal-output"><span class="terminal-output__prompt">$</span> git add hello.txt
+<span class="terminal-output__prompt">$</span> git status
+<span class="terminal-output__muted">현재 브랜치 main</span>
+커밋할 변경 사항:
+  새 파일: hello.txt
+<span class="terminal-output__prompt">$</span> <span aria-hidden="true">▏</span></pre></div>
+      </section>
+    </section>
+    <section class="preview-section" aria-labelledby="components-title"><h2 id="components-title">컴포넌트와 상태</h2>
+      <div class="preview-grid">
+        <section class="panel"><div class="panel__body preview-stack"><h3>버튼 · 배지 · 칩</h3><div class="preview-row"><button type="button" class="button button--primary">주요 버튼</button><button type="button" class="button button--secondary">보통 버튼</button><button type="button" class="button button--quiet">조용한 버튼</button><button type="button" class="button button--primary" disabled>사용 불가</button></div><div class="preview-row"><span class="badge">기본 배지</span><span class="chip">main</span><button type="button" class="chip" aria-pressed="true" id="chip-toggle">변경 파일 선택</button></div><p class="preview-note">Tab 키로 포커스 링을 확인하세요. 주요 버튼은 작업 묶음마다 하나만 사용합니다.</p></div></section>
+        <section class="panel"><div class="panel__body preview-stack"><h3>입력 · 오류 · 비활성</h3><div class="field"><label class="field__label" for="invalid-message">커밋 메시지</label><input class="input" id="invalid-message" aria-invalid="true" aria-describedby="input-error"><p class="field__error" id="input-error">오류: 커밋 메시지를 입력하세요.</p></div><div class="field"><label class="field__label" for="disabled-input">읽기 전용 작업 상태</label><input class="input" id="disabled-input" value="저장소 준비 중" disabled></div></div></section>
+        <section class="panel"><div class="panel__body preview-stack"><h3>리스트 행 · 진행 표시</h3><ol class="list"><li class="list-row">1. 파일 수정 <span>완료</span></li><li class="list-row" aria-current="step">2. 변경 스테이징 <strong>현재 단계</strong></li><li class="list-row">3. 커밋 생성 <span>대기</span></li></ol><label for="complete-progress">완료된 레슨 · 4 / 4단계</label><progress class="progress" id="complete-progress" value="4" max="4">100%</progress></div></section>
+        <section class="panel"><div class="panel__body preview-stack"><h3>카드 · 토스트</h3><div class="card"><h4 class="card__title">변경을 선택하는 영역</h4><p>카드는 패널 안에서 설명 또는 관련 정보를 묶을 때 사용합니다.</p></div><div class="toast"><p class="toast__message">스테이징 상태를 확인했습니다.</p><span class="badge badge--staged">확인됨</span></div><p class="preview-note">실제 토스트는 아래에 겹쳐 표시하고 초점을 이동시키지 않습니다.</p></div></section>
+      </div>
+    </section>
+    <section class="preview-section" aria-labelledby="palette-title"><h2 id="palette-title">촘촘한 회색, 절제된 포인트</h2><div class="preview-swatches" id="palette"></div></section>
+    <section class="preview-section" aria-labelledby="tokens-title"><h2 id="tokens-title">전체 토큰</h2><p class="preview-subtitle">현재 테마의 계산값입니다. 색·타이포·간격·라운드·그림자·모션을 모두 표시합니다.</p><div class="preview-table-wrap"><table class="preview-table"><thead><tr><th scope="col">토큰</th><th scope="col">현재 값</th><th scope="col">예시</th></tr></thead><tbody id="token-table"></tbody></table></div></section>
+  </main>
+  <div class="toast preview-toast" id="feedback-toast" hidden><p class="toast__message" role="status" id="feedback-message"></p><button type="button" class="button button--quiet" id="dismiss-toast">닫기</button></div>
+  <script>
+    const theme = document.querySelector('#theme');
+    const root = document.documentElement;
+    const sheet = [...document.styleSheets].find(sheet => sheet.href?.endsWith('/tokens.css'));
+    const names = [...sheet.cssRules[0].style].filter(name => name.startsWith('--'));
+    function renderTokens() {
+      const styles = getComputedStyle(root);
+      document.querySelector('#palette').replaceChildren();
+      document.querySelector('#token-table').replaceChildren();
+      for (const name of names) {
+        const value = styles.getPropertyValue(name).trim();
+        const row = document.createElement('tr');
+        const label = document.createElement('td');
+        const code = document.createElement('code');
+        code.textContent = name;
+        label.append(code);
+        const detail = document.createElement('td');
+        detail.textContent = value;
+        const sampleCell = document.createElement('td');
+        const sample = document.createElement('span');
+        sample.className = 'preview-token-sample';
+        if (name.startsWith('--color-') || name.startsWith('--grey-')) {
+          sample.style.cssText = `height:24px;background:var(${name});border:1px solid var(--color-control-border);border-radius:4px`;
+        } else if (name.startsWith('--space-')) {
+          sample.style.cssText = `height:8px;width:var(${name});min-width:0;background:var(--color-accent)`;
+        } else if (name.startsWith('--radius-') || name.startsWith('--shadow-')) {
+          sample.style.cssText = `width:64px;height:32px;background:var(--color-surface-subtle);border:1px solid var(--color-border)`;
+          sample.style[name.startsWith('--radius-') ? 'borderRadius' : 'boxShadow'] = `var(${name})`;
+        } else if (name.startsWith('--text-') || name.startsWith('--font-') || name.startsWith('--weight-') || name.startsWith('--leading-') || name.startsWith('--tracking-')) {
+          sample.textContent = '변경 기록 Git';
+          const property = name.startsWith('--text-') ? 'fontSize' : name.startsWith('--font-') ? 'fontFamily' : name.startsWith('--weight-') ? 'fontWeight' : name.startsWith('--leading-') ? 'lineHeight' : 'letterSpacing';
+          sample.style[property] = `var(${name})`;
+        } else { sample.textContent = value; }
+        sampleCell.append(sample);
+        row.append(label, detail, sampleCell);
+        document.querySelector('#token-table').append(row);
+        if (name.startsWith('--grey-')) {
+          const swatch = document.createElement('div');
+          swatch.className = 'preview-swatch';
+          const color = document.createElement('div');
+          color.className = 'preview-swatch-color';
+          color.style.background = `var(${name})`;
+          const caption = document.createElement('code');
+          caption.textContent = `${name.slice(2)} · ${value}`;
+          swatch.append(color, caption);
+          document.querySelector('#palette').append(swatch);
+        }
+      }
+    }
+    theme.addEventListener('change', () => {
+      if (theme.value === 'system') delete root.dataset.theme;
+      else root.dataset.theme = theme.value;
+      renderTokens();
+    });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderTokens);
+    matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', renderTokens);
+    document.querySelector('#feedback-button').addEventListener('click', () => {
+      document.querySelector('#feedback-toast').hidden = false;
+      document.querySelector('#feedback-message').textContent = '피드백 표시 예시입니다. 저장소는 변경되지 않았습니다.';
+    });
+    document.querySelector('#dismiss-toast').addEventListener('click', () => {
+      document.querySelector('#feedback-toast').hidden = true;
+      document.querySelector('#feedback-button').focus();
+    });
+    document.querySelector('#chip-toggle').addEventListener('click', event => {
+      const chip = event.currentTarget;
+      chip.setAttribute('aria-pressed', String(chip.getAttribute('aria-pressed') !== 'true'));
+    });
+    renderTokens();
+  </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-body);
+}
+h1, h2, h3, h4, p, figure, pre { margin: 0; }
+h1, h2, h3 { font-weight: var(--weight-bold); line-height: var(--leading-tight); letter-spacing: var(--tracking-title); }
+h1 { font-size: var(--text-2xl); }
+h2 { font-size: var(--text-xl); }
+h3 { font-size: var(--text-lg); }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+input, textarea, select { min-width: 0; }
+img, svg { max-width: 100%; vertical-align: middle; }
+a { color: var(--color-accent); text-underline-offset: 0.2em; }
+code, pre, kbd, samp { font-family: var(--font-mono); font-size: var(--text-sm); line-height: var(--leading-code); }
+pre { overflow: auto; tab-size: 2; }
+:focus-visible { outline: var(--focus-width) solid var(--color-focus); outline-offset: var(--focus-offset); }
+::selection { background: var(--color-accent); color: var(--color-on-accent); }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0ms !important; scroll-behavior: auto !important; }
+}
