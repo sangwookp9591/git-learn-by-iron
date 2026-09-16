@@ -1,0 +1,43 @@
+
+> git-learn-by-iron@0.1.0 test
+> node --test src/tests/*.test.ts src/lesson/*.test.ts
+
+✔ index.has and index.lacks accept only login.js staging, not add . (571.592333ms)
+✔ terminal git add and the actual UI staging handler receive identical assessments (349.307541ms)
+✔ head.moved detects a commit against the step snapshot, never a command string (203.98325ms)
+✔ runner preserves per-step baselines, rejects premature advance, and completes the fixture (274.779625ms)
+✔ snapshots include other branches and assertions fail closed for missing or invalid evidence (53.0105ms)
+✔ hints support state calls, quoted paths, comparisons, grouping and idle thresholds safely (371.500166ms)
+✔ unavailable content steps are skipped as unsupported and never awarded a pass (20.844ms)
+✔ a passed check is invalidated if a later action changes the state (292.426292ms)
+✔ content first-branch completes all four steps with real origin ahead commits (3732.186708ms)
+✔ content first-commit-convention completes five steps using selective index, trailers and ignore (4412.399334ms)
+✔ content split-commits completes four steps, rejects normal push and accepts lease (3473.234125ms)
+✔ content recovery finds three reflog commits, restores each and preserves colleague commit (3404.8455ms)
+✔ lease compares live origin to last fetch and fetch does not overwrite local work (1191.055334ms)
+✔ push -u, partial staging, amend and reset modes preserve the appropriate trees (779.766083ms)
+✔ unified fixture schema rejects the legacy shape and malformed remote/dangling values (0.528959ms)
+✔ merge recovery is also accepted; grading does not require cherry-pick (707.644458ms)
+✔ cherry-pick conflict can be resolved and continued, or aborted without losing the starting tree (545.575667ms)
+✔ runner command hints cannot affect the readState grading contract (264.352625ms)
+✔ authored Korean prose is byte-for-byte preserved and every content assertion is canonical (168.669709ms)
+✔ onboarding completes seven state-graded steps, persists the repository, and separates ignore commit (5713.900583ms)
+✔ progress storage access failure and malformed records are optional (0.626417ms)
+✔ required round trip: partial staging, commit, log and two remaining dirty files (727.326875ms)
+✔ parser preserves quoted messages, escapes, empty values and literal path options (0.716791ms)
+✔ initial state, first commit, literal Korean command output and empty commit rejection (217.975208ms)
+✔ a staged file edited again appears in both state sets; unstage keeps file content (232.053042ms)
+✔ unstage works before the first commit; add -A and add . stage deletions and nested files (276.23625ms)
+✔ branch creation preserves staged/dirty state and switching restores committed content (160.24275ms)
+✔ isolated lesson repositories reopen without losing progress (20.952667ms)
+✔ unsupported commands/options cannot mutate state; unsafe paths are rejected (413.954125ms)
+✔ gitignore is respected and same-length edits are detected (129.924042ms)
+✔ unborn switch -c works while branch creation requires a commit (88.058583ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20026.612625

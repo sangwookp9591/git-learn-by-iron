@@ -1,0 +1,14 @@
+
+> git-learn-by-iron@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 203 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.92 kB │ gzip:   0.56 kB
+dist/assets/index-DDfC2VjH.css   26.10 kB │ gzip:   5.42 kB
+dist/assets/index-CppGiT5B.js   490.63 kB │ gzip: 142.01 kB
+
+✓ built in 186ms

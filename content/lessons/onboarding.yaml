@@ -1,0 +1,482 @@
+id: onboarding
+title: 변경 골라 담기
+difficulty: 초급
+scenario_beat: 2일차 오후 · 기능 변경과 개인 설정을 나눠 두 개의 커밋으로 남깁니다.
+setup:
+  branch: main
+  commits:
+    - message: |
+        feat(payment): 결제 요청 스키마와 게이트웨이 클라이언트 추가
+
+        Refs: PAY-118
+      files:
+        src/payment/PaymentRequest.ts: |
+          export type Currency = 'KRW' | 'USD' | 'JPY'
+
+          export interface Card {
+            bin: string
+            last4: string
+            expiryMonth: number
+            expiryYear: number
+            issuerCode: string
+          }
+
+          export interface PaymentRequest {
+            orderId: string
+            amount: number
+            currency: Currency
+            card: Card
+            idempotencyKey: string
+          }
+
+          export interface ValidationResult {
+            ok: boolean
+            code?: string
+            message?: string
+          }
+        src/payment/gateway/GatewayClient.ts: |
+          import type { PaymentRequest } from '../PaymentRequest'
+
+          export interface GatewayResponse {
+            approved: boolean
+            approvalNumber?: string
+            declineCode?: string
+          }
+
+          export class GatewayClient {
+            constructor(
+              private readonly baseUrl: string,
+              private readonly timeoutMs: number,
+            ) {}
+
+            async authorize(req: PaymentRequest): Promise<GatewayResponse> {
+              const res = await fetch(`${this.baseUrl}/authorizations`, {
+                method: 'POST',
+                headers: {
+                  'content-type': 'application/json',
+                  'idempotency-key': req.idempotencyKey,
+                },
+                body: JSON.stringify(req),
+                signal: AbortSignal.timeout(this.timeoutMs),
+              })
+              return (await res.json()) as GatewayResponse
+            }
+          }
+        config/payment.yml: |
+          gateway:
+            baseUrl: https://gw.dalro.example/v2
+            timeoutMs: 3000
+            retry:
+              maxAttempts: 3
+              backoffMs: 200
+
+          limits:
+            minAmount: 100
+            maxAmount: 10000000
+        .gitignore: |
+          node_modules/
+          dist/
+          *.log
+          .DS_Store
+    - message: |
+        feat(payment): 결제 요청 검증기 골격 추가
+
+        금액 범위와 필수 필드만 먼저 막습니다. 카드 만료일 검증은
+        게이트웨이 응답 코드 정리가 끝난 뒤에 붙입니다.
+
+        Refs: PAY-140
+      files:
+        src/payment/PaymentValidator.ts: >
+          import type { PaymentRequest, ValidationResult } from
+          './PaymentRequest'
+
+
+          const MIN_AMOUNT = 100
+
+          const MAX_AMOUNT = 10_000_000
+
+
+          export class PaymentValidator {
+            validate(req: PaymentRequest): ValidationResult {
+              if (!req.orderId) {
+                return { ok: false, code: 'ORDER_ID_REQUIRED', message: '주문 번호가 없습니다' }
+              }
+              if (req.amount < MIN_AMOUNT || req.amount > MAX_AMOUNT) {
+                return { ok: false, code: 'AMOUNT_OUT_OF_RANGE', message: '결제 금액이 허용 범위를 벗어났습니다' }
+              }
+              if (!req.idempotencyKey) {
+                return { ok: false, code: 'IDEMPOTENCY_KEY_REQUIRED', message: '멱등성 키가 없습니다' }
+              }
+              return { ok: true }
+            }
+          }
+        src/payment/__tests__/validator.test.ts: >
+          import { test } from 'node:test'
+
+          import assert from 'node:assert/strict'
+
+          import { PaymentValidator } from '../PaymentValidator'
+
+          import type { PaymentRequest } from '../PaymentRequest'
+
+
+          const request = (over: Partial<PaymentRequest> = {}): PaymentRequest
+          => ({
+            orderId: 'ORD-20260914-0001',
+            amount: 12_900,
+            currency: 'KRW',
+            card: { bin: '433012', last4: '9921', expiryMonth: 7, expiryYear: 2027, issuerCode: 'KB' },
+            idempotencyKey: 'a1f2-c390',
+            ...over,
+          })
+
+
+          test('금액이 하한보다 작으면 거절한다', () => {
+            const result = new PaymentValidator().validate(request({ amount: 10 }))
+            assert.equal(result.code, 'AMOUNT_OUT_OF_RANGE')
+          })
+
+
+          test('필수 필드가 채워지면 통과한다', () => {
+            assert.equal(new PaymentValidator().validate(request()).ok, true)
+          })
+    - message: |
+        feat(payment): 결제 승인 컨트롤러 추가
+
+        Refs: PAY-140
+      files:
+        src/payment/PaymentController.ts: >
+          import { PaymentValidator } from './PaymentValidator'
+
+          import { GatewayClient } from './gateway/GatewayClient'
+
+          import type { PaymentRequest } from './PaymentRequest'
+
+
+          export interface HttpResponse {
+            status: number
+            body: unknown
+          }
+
+
+          export class PaymentController {
+            constructor(
+              private readonly validator: PaymentValidator,
+              private readonly gateway: GatewayClient,
+            ) {}
+
+            async authorize(req: PaymentRequest): Promise<HttpResponse> {
+              const validation = this.validator.validate(req)
+              if (!validation.ok) {
+                return { status: 422, body: { code: validation.code, message: validation.message } }
+              }
+
+              const result = await this.gateway.authorize(req)
+              if (!result.approved) {
+                return { status: 402, body: { code: result.declineCode } }
+              }
+              return { status: 200, body: { approvalNumber: result.approvalNumber } }
+            }
+          }
+    - message: |
+        refactor(settlement): 정산 금액 계산을 도메인 서비스로 분리
+
+        Refs: PAY-201
+      files:
+        src/settlement/SettlementCalculator.ts: >
+          export interface SettlementInput {
+            amount: number
+            feeRate: number
+            issuerCode: string
+          }
+
+
+          const ISSUER_SURCHARGE: Record<string, number> = {
+            KB: 0,
+            SHINHAN: 0,
+            AMEX: 0.004,
+          }
+
+
+          export class SettlementCalculator {
+            calculate({ amount, feeRate, issuerCode }: SettlementInput): number {
+              const surcharge = ISSUER_SURCHARGE[issuerCode] ?? 0
+              const fee = Math.round(amount * (feeRate + surcharge))
+              return amount - fee
+            }
+          }
+  remote:
+    branches:
+      main:
+        tracks: true
+        at: head
+  working_tree:
+    modified:
+      src/payment/PaymentValidator.ts: >
+        import type { Card, PaymentRequest, ValidationResult } from
+        './PaymentRequest'
+
+
+        const MIN_AMOUNT = 100
+
+        const MAX_AMOUNT = 10_000_000
+
+
+        export class PaymentValidator {
+          validate(req: PaymentRequest, now: Date = new Date()): ValidationResult {
+            if (!req.orderId) {
+              return { ok: false, code: 'ORDER_ID_REQUIRED', message: '주문 번호가 없습니다' }
+            }
+            if (req.amount < MIN_AMOUNT || req.amount > MAX_AMOUNT) {
+              return { ok: false, code: 'AMOUNT_OUT_OF_RANGE', message: '결제 금액이 허용 범위를 벗어났습니다' }
+            }
+            if (!req.idempotencyKey) {
+              return { ok: false, code: 'IDEMPOTENCY_KEY_REQUIRED', message: '멱등성 키가 없습니다' }
+            }
+            if (this.isExpired(req.card, now)) {
+              return { ok: false, code: 'CARD_EXPIRED', message: '만료된 카드입니다' }
+            }
+            return { ok: true }
+          }
+
+          private isExpired(card: Card, now: Date): boolean {
+            const lastMoment = new Date(card.expiryYear, card.expiryMonth, 0, 23, 59, 59)
+            return now > lastMoment
+          }
+        }
+      src/payment/PaymentController.ts: >
+        import { PaymentValidator } from './PaymentValidator'
+
+        import { GatewayClient } from './gateway/GatewayClient'
+
+        import type { PaymentRequest } from './PaymentRequest'
+
+
+        export interface HttpResponse {
+          status: number
+          body: unknown
+        }
+
+
+        const CLIENT_FAULT_CODES = new Set(['CARD_EXPIRED',
+        'AMOUNT_OUT_OF_RANGE', 'ORDER_ID_REQUIRED'])
+
+
+        export class PaymentController {
+          constructor(
+            private readonly validator: PaymentValidator,
+            private readonly gateway: GatewayClient,
+          ) {}
+
+          async authorize(req: PaymentRequest): Promise<HttpResponse> {
+            const validation = this.validator.validate(req)
+            if (!validation.ok) {
+              const status = CLIENT_FAULT_CODES.has(validation.code ?? '') ? 400 : 422
+              return { status, body: { code: validation.code, message: validation.message } }
+            }
+
+            const result = await this.gateway.authorize(req)
+            if (!result.approved) {
+              return { status: 402, body: { code: result.declineCode } }
+            }
+            return { status: 200, body: { approvalNumber: result.approvalNumber } }
+          }
+        }
+      src/payment/__tests__/validator.test.ts: >
+        import { test } from 'node:test'
+
+        import assert from 'node:assert/strict'
+
+        import { PaymentValidator } from '../PaymentValidator'
+
+        import type { PaymentRequest } from '../PaymentRequest'
+
+
+        const request = (over: Partial<PaymentRequest> = {}): PaymentRequest =>
+        ({
+          orderId: 'ORD-20260914-0001',
+          amount: 12_900,
+          currency: 'KRW',
+          card: { bin: '433012', last4: '9921', expiryMonth: 7, expiryYear: 2027, issuerCode: 'KB' },
+          idempotencyKey: 'a1f2-c390',
+          ...over,
+        })
+
+
+        test('금액이 하한보다 작으면 거절한다', () => {
+          const result = new PaymentValidator().validate(request({ amount: 10 }))
+          assert.equal(result.code, 'AMOUNT_OUT_OF_RANGE')
+        })
+
+
+        test('필수 필드가 채워지면 통과한다', () => {
+          assert.equal(new PaymentValidator().validate(request()).ok, true)
+        })
+
+
+        test('만료월 말일까지는 통과한다', () => {
+          const card = { bin: '433012', last4: '9921', expiryMonth: 7, expiryYear: 2026, issuerCode: 'KB' }
+          const result = new PaymentValidator().validate(request({ card }), new Date(2026, 6, 31, 23, 0, 0))
+          assert.equal(result.ok, true)
+        })
+
+
+        test('만료월이 지나면 거절한다', () => {
+          const card = { bin: '433012', last4: '9921', expiryMonth: 7, expiryYear: 2026, issuerCode: 'KB' }
+          const result = new PaymentValidator().validate(request({ card }), new Date(2026, 7, 1, 0, 0, 1))
+          assert.equal(result.code, 'CARD_EXPIRED')
+        })
+    untracked:
+      .env.local: |
+        # 로컬에서만 쓰는 값. 저장소에 올리면 안 된다.
+        DALRO_GATEWAY_BASE_URL=http://localhost:9010/v2
+        DALRO_GATEWAY_API_KEY=sk_local_9f2c41ab7d0e
+        DALRO_DB_URL=postgres://iron:iron@localhost:5432/payments
+        LOG_LEVEL=debug
+    staged: []
+intro: 달로 결제팀의 첫 작업입니다. 카드 만료일 검증은 구현되어 있습니다. 이번에는 기록할 변경만 골라 봅니다.
+steps:
+  - say: 현재 상태를 확인합니다. `git status`가 지금 있는 자리와 변경된 파일을 보여줍니다.
+    assert: &a1
+      - branch.current: main
+      - worktree.dirty: true
+      - index.empty: true
+    hints:
+      - when: idle > 20s
+        say: Enter를 누르면 채워진 명령이 실행됩니다.
+      - when: requested
+        say: 터미널과 소스 컨트롤은 같은 저장소를 봅니다. 담긴 파일과 남은 파일을 비교하세요.
+    solution:
+      commands:
+        - git status
+  - say: >-
+      소스 컨트롤에서 수정된 파일 세 개와 `.env.local`을 열어 확인하세요. `.env.local`은 개인 설정이므로 커밋에 넣지
+      않습니다.
+
+          git diff
+
+      내용을 확인했으면 아래 확인 버튼으로 진행하세요.
+    assert: *a1
+    hints:
+      - when: idle > 20s
+        say: 파일 이름을 누르면 내용을 볼 수 있습니다. .env.local에는 연습용 값만 들어 있습니다.
+      - when: requested
+        say: 터미널과 소스 컨트롤은 같은 저장소를 봅니다. 담긴 파일과 남은 파일을 비교하세요.
+    solution:
+      commands:
+        - git diff
+  - say: >-
+      먼저 PaymentValidator.ts 옆 `+` 버튼으로 담으세요. 다음 두 파일은 터미널로 담습니다.
+
+          git add src/payment/PaymentController.ts src/payment/__tests__/validator.test.ts
+
+      목록에서 파일이 위로 옮겨갑니다. `.env.local`은 남겨 두세요.
+    assert: &a2
+      - index.has: src/payment/PaymentValidator.ts
+      - index.has: src/payment/PaymentController.ts
+      - index.has: src/payment/__tests__/validator.test.ts
+      - index.lacks: .env.local
+      - index.lacks: .gitignore
+    hints:
+      - when: idle > 20s
+        say: 잘못 담은 파일은 − 버튼으로 뺄 수 있습니다. 파일 내용은 유지됩니다.
+      - when: requested
+        say: 터미널과 소스 컨트롤은 같은 저장소를 봅니다. 담긴 파일과 남은 파일을 비교하세요.
+    solution:
+      commands:
+        - git restore --staged .env.local
+        - git restore --staged .gitignore
+        - git add src/payment/PaymentValidator.ts
+          src/payment/PaymentController.ts
+          src/payment/__tests__/validator.test.ts
+  - say: |-
+      이번 커밋에 담긴 변경만 확인하세요.
+
+          git diff --staged
+
+      기능 파일 세 개가 있고 `.env.local`이 없는지 확인한 뒤 진행하세요.
+    assert: *a2
+    hints:
+      - when: idle > 20s
+        say: git diff는 남은 변경, git diff --staged는 담은 변경을 보여줍니다.
+      - when: requested
+        say: 터미널과 소스 컨트롤은 같은 저장소를 봅니다. 담긴 파일과 남은 파일을 비교하세요.
+    solution:
+      commands:
+        - git diff --staged
+  - say: |-
+      소스 컨트롤의 커밋 메시지에 아래 내용을 쓰고 커밋하기를 누르세요.
+
+          feat(payment): 카드 만료일 검증 추가
+
+          Refs: PAY-231
+
+      제목과 꼬리말 사이에는 빈 줄을 둡니다.
+    assert: &a3
+      - head.message.matches: "^feat\\(payment\\): [^\\n.]+\\n"
+      - commit.trailer: "Refs: PAY-231"
+      - commit.touches: src/payment/PaymentValidator.ts
+      - commit.touches: src/payment/PaymentController.ts
+      - commit.touches: src/payment/__tests__/validator.test.ts
+      - commit.not_touches: .env.local
+      - commit.not_touches: .gitignore
+      - index.empty: true
+      - commit.count: 5
+    hints:
+      - when: idle > 20s
+        say: "새 기능은 feat, 범위는 payment입니다. 제목 아래 빈 줄과 Refs: PAY-231을 넣으세요."
+      - when: requested
+        say: 터미널과 소스 컨트롤은 같은 저장소를 봅니다. 담긴 파일과 남은 파일을 비교하세요.
+    solution:
+      commands:
+        - git add src/payment/PaymentValidator.ts src/payment/PaymentController.ts src/payment/__tests__/validator.test.ts
+        - 'git commit -m "feat(payment): 카드 만료일 검증 추가" -m "Refs: PAY-231"'
+  - say: |-
+      커밋 그래프 맨 위에 점이 하나 늘었습니다. 그 커밋을 눌러 기록된 파일을 확인하세요.
+
+      기능 파일만 들어갔으면 확인 버튼으로 진행합니다.
+    assert: *a3
+    hints:
+      - when: idle > 20s
+        say: 그래프의 새 커밋을 누르면 메시지와 파일 목록이 열립니다.
+      - when: requested
+        say: 터미널과 소스 컨트롤은 같은 저장소를 봅니다. 담긴 파일과 남은 파일을 비교하세요.
+    solution:
+      commands:
+        - git show --stat HEAD
+  - say: |-
+      소스 컨트롤의 파일 편집에서 `.gitignore`를 열고 끝에 `.env.local` 한 줄을 추가해 저장하세요.
+
+          git add .gitignore
+          git commit -m "chore: .gitignore에 .env.local 추가" -m "Refs: PAY-231"
+
+      별도 커밋이면 기능만 되돌려도 개인 설정 보호는 남습니다.
+    assert:
+      - worktree.file_ignored: .env.local
+      - head.message.matches: "^chore: "
+      - commit.touches: .gitignore
+      - commit.not_touches: src/payment/PaymentValidator.ts
+      - commit.not_touches: src/payment/PaymentController.ts
+      - commit.not_touches: src/payment/__tests__/validator.test.ts
+      - commit.not_touches: .env.local
+      - commit.subject_on_branch: "feat(payment):"
+      - commit.count: 6
+      - worktree.clean: true
+    hints:
+      - when: idle > 20s
+        say: 파일 편집에서 .gitignore를 열어 .env.local을 새 줄에 추가합니다. 이 파일만 담아 chore 커밋을 만드세요.
+      - when: requested
+        say: 터미널과 소스 컨트롤은 같은 저장소를 봅니다. 담긴 파일과 남은 파일을 비교하세요.
+    solution:
+      commands:
+        - git add .gitignore
+        - 'git commit -m "chore: .gitignore에 .env.local 추가" -m "Refs: PAY-231"'
+      files:
+        .gitignore: |
+          node_modules/
+          dist/
+          *.log
+          .DS_Store
+
+          .env.local
+recap: 기능과 개인 설정 보호를 별도 커밋으로 남겼습니다. 한 커밋에는 따로 되돌릴 수 있는 한 가지 일을 담습니다.

@@ -1,0 +1,58 @@
+import 'fake-indexeddb/auto';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { readFile } from 'node:fs/promises';
+import { parseLesson, parseSetup, inspectLesson } from './catalog.ts';
+import { startLesson } from './runner.ts';
+import { readState } from '../engine/state.ts';
+import { resumeAttempt, readProgress, writeProgress, type Attempt } from '../ui/progress.ts';
+
+Object.defineProperty(navigator, 'locks', {value: undefined, configurable: true});
+test('onboarding completes seven state-graded steps, persists the repository, and separates ignore commit', async () => {
+  const lesson = parseLesson(await readFile(new URL('../../content/lessons/onboarding.yaml', import.meta.url), 'utf8'));
+  const setup = parseSetup(lesson.setup);
+  const support = inspectLesson(lesson, true);
+  assert.ok(support.every(s => s.supported));
+  const runner = await startLesson(lesson, setup);
+  assert.equal(lesson.steps.length, 7);
+  const advance = async () => assert.equal(await runner.advance(), true);
+  await runner.execute('git status'); await advance();
+  await runner.execute('git diff'); await advance();
+  assert.equal(await runner.advance(), false, 'empty index cannot pass');
+  await runner.stage('src/payment/PaymentValidator.ts');
+  await runner.execute('git add src/payment/PaymentController.ts src/payment/__tests__/validator.test.ts');
+  await runner.stage('.env.local');
+  assert.equal(await runner.advance(), false, 'personal config cannot pass');
+  await runner.unstage('.env.local');
+  const attempt: Attempt = {lesson: lesson.id, repo: runner.repo.lessonId, step: runner.currentStep, baseline: runner.baseline, log: [], history: [], helped: [], assisted: [], updated: Date.now()};
+  const resumed = await resumeAttempt({lesson, setup, support, source:'test'}, attempt);
+  assert.equal(resumed.currentStep, 2);
+  assert.deepEqual(resumed.state.index, runner.state.index);
+  assert.equal(resumed.state.head?.sha, runner.state.head?.sha);
+  await advance(); await runner.execute('git diff --staged'); await advance();
+  await runner.commit('fix(payment): 잘못된 타입\n\nRefs: PAY-231');
+  assert.equal(await runner.advance(), false);
+  await runner.execute('git commit --amend -m "feat(payment): 카드 만료일 검증 추가" -m "Refs: PAY-231"');
+  await advance(); await advance();
+  const feature = runner.state.head!.sha;
+  await runner.repo.writeFile('.gitignore', (await runner.repo.readFile('.gitignore'))+'\n.env.local\n');
+  await runner.execute('git add .gitignore');
+  await runner.execute('git commit -m "chore: .gitignore에 .env.local 추가" -m "Refs: PAY-231"');
+  await advance();
+  assert.equal(runner.complete, true);
+  const state = await readState(runner.repo);
+  assert.equal(state.commits.length, setup.commits.length + 2);
+  assert.equal(state.commits[1].sha, feature);
+  assert.deepEqual(state.commits[0].files, ['.gitignore']);
+  assert.ok(state.ignored.includes('.env.local'));
+  assert.equal(state.worktree.length, 0);
+  assert.equal(runner.skipped.length, 0);
+});
+
+test('progress storage access failure and malformed records are optional', () => {
+  Object.defineProperty(globalThis, 'localStorage', {configurable: true, get() {throw new Error('Access denied');}});
+  assert.deepEqual(readProgress(), {attempts:{}});
+  assert.equal(writeProgress({attempts:{}}), false);
+  Object.defineProperty(globalThis, 'localStorage', {configurable: true, value: { getItem: () => '{"attempts":{"bad":{"step":999}}}', setItem: () => {} }});
+  assert.deepEqual(readProgress().attempts, {});
+});

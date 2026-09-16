@@ -2,7 +2,7 @@ export const namespaces = ['index', 'worktree', 'head', 'branch', 'commit', 'ref
 export type AssertionValue = string | number | boolean;
 export type Assertion = Record<string, AssertionValue>;
 export interface Hint { when: string; say: string }
-export interface LessonStep { say: string; assert: Assertion[]; hints: Hint[] }
+export interface LessonStep { say: string; assert: Assertion[]; hints: Hint[]; solution?: { commands: string[]; files?: Record<string, string> } }
 export interface FixtureCommit { message: string; files: Record<string, string> }
 export interface Setup {
   commits: FixtureCommit[];

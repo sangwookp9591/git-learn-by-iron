@@ -100,3 +100,64 @@
   .page-footer span:last-child { width: 100%; margin-left: 0; }
   .app-status { margin-inline: var(--space-4); }
 }
+
+/* Onboarding reuses the mounted terminal and the existing design tokens. */
+.home-screen, .screen { max-width: 1200px; margin: auto; padding: var(--space-8); }
+.landing-copy { display: grid; align-content: center; justify-items: start; gap: var(--space-5); min-height: 32vh; }
+.landing-copy h1 { max-width: 28ch; font-size: var(--text-2xl); }
+.landing-copy small, .eyebrow { color: var(--color-text-muted); font-size: var(--text-xs); }
+.eyebrow { font-family: var(--font-mono); }
+[data-screen='landing'] .workspace { display: block; max-width: 1200px; padding-top: 0; }
+[data-screen='landing'] .lesson-pane, [data-screen='landing'] .source-panel, [data-screen='landing'] .graph-panel { display: none; }
+[data-screen='landing'] .workbench { display: block; }
+[data-screen='landing'] .terminal-panel { display: flex; flex-direction: column; min-height: 43vh; }
+[data-screen='landing'] .terminal-output { flex: 1; min-height: var(--space-12); max-height: 24vh; }
+[data-screen='landing'] .terminal-form { margin-top: auto; }
+[data-screen='landing'] .page-footer { display: none; }
+[data-screen='landing'] #catalog-button { display: none; }
+.screen { display: grid; gap: var(--space-6); }
+.screen h1, #returning-copy h1 { margin-bottom: var(--space-4); }
+.screen-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.screen > .button { justify-self: start; }
+.completion-commits { display: grid; gap: var(--space-2); padding: 0; list-style: none; }
+.catalog-group { display: grid; gap: var(--space-4); padding-block: var(--space-5); border-top: 1px solid var(--color-border); }
+.catalog-group h2 { font-size: var(--text-lg); }
+.lesson-card { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.lesson-card > p { flex-basis: 100%; }
+.lesson-card .button { text-align: left; }
+.resume-card { display: flex; justify-content: flex-start; text-align: left; width: 100%; min-height: 7rem; padding: var(--space-6); margin-block: var(--space-5); font-size: var(--text-xl); }
+#returning-copy { padding-block: var(--space-12); }
+#returning-copy > p { margin-block: var(--space-4); }
+.account-form { display: grid; gap: var(--space-3); max-width: 32rem; }
+.graph-commit { display: block; padding: 0; min-height: var(--control-height); text-align: left; }
+.state-changed { animation: state-change calc(var(--duration-normal) * 3) var(--ease-standard); }
+@keyframes state-change { from { background: var(--color-accent-soft); transform: translateY(var(--space-4)); } to { transform: translateY(0); } }
+@media (max-width: 760px) {
+  .home-screen, .screen { padding: var(--space-4); }
+  [data-screen='landing'] .header-tools, [data-screen='returning'] .header-tools { width: auto; }
+  .landing-copy { min-height: 32svh; gap: var(--space-3); }
+  .landing-copy h1 { font-size: var(--text-xl); }
+  [data-screen='landing'] .terminal-panel { min-height: 40svh; }
+  [data-screen='landing'] .terminal-output { max-height: 15svh; }
+  .terminal-form { gap: var(--space-2); padding-inline: var(--space-3); }
+  .screen pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .resume-card { font-size: var(--text-lg); }
+  .header-tools { flex-wrap: wrap; }
+}
+@media (min-width: 1201px) {
+  [data-screen='workbench'] .source-panel, [data-screen='workbench'] .graph-panel { max-height: 40vh; }
+  [data-screen='workbench'] .source-content, [data-screen='workbench'] .graph-content { overflow: auto; }
+  [data-screen='workbench'] .graph-panel { display: flex; flex-direction: column; }
+  [data-screen='workbench'] .panel__header, [data-screen='workbench'] .commit-form { flex-shrink: 0; }
+  [data-screen='workbench'] .terminal-output { max-height: 18rem; }
+}
+.header-tools > button { flex-shrink: 0; white-space: nowrap; }
+@media (min-width: 1201px) {
+  [data-screen='workbench'] .source-content { padding: var(--space-3); }
+  [data-screen='workbench'] .source-content .panel-caption { margin-bottom: var(--space-2); }
+  [data-screen='workbench'] .file-group-heading { margin-block: var(--space-2); }
+  [data-screen='workbench'] .file-row { padding-block: var(--space-1); }
+  [data-screen='workbench'] .file-row .button { min-height: var(--space-8); }
+}
+.graph-content { display: flex; flex-direction: column; }
+.graph-note { order: -1; border-top: 0; padding-top: 0; padding-bottom: var(--space-3); }

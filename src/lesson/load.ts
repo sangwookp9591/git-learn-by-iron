@@ -27,6 +27,20 @@ export function loadLessons(): { entries: LessonEntry[]; errors: string[] } {
       errors.push(`${source}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+  // Keep the original lesson prose intact; share the onboarding's executable examples.
+  const onboarding = entries.find(entry => entry.lesson.id === 'onboarding')?.lesson;
+  for (const { lesson } of entries) {
+    if (lesson.difficulty !== '초급') continue;
+    lesson.steps.forEach((step, index) => {
+      if (step.solution) return;
+      if (lesson.id === 'first-commit-convention' && onboarding) {
+        step.solution = structuredClone(onboarding.steps[[2, 3, 4, 6, 5][index]].solution);
+      } else {
+        const commands = [...step.say.replace(/\\\n\s*/g, ' ').matchAll(/^ {4}(git [^\n]+)/gm)].map(match => match[1].trim());
+        if (commands.length) step.solution = { commands };
+      }
+    });
+  }
   entries.sort((a, b) => Number(!!b.setup) - Number(!!a.setup) || ['초급', '중급', '고급'].indexOf(a.lesson.difficulty) - ['초급', '중급', '고급'].indexOf(b.lesson.difficulty) || a.lesson.id.localeCompare(b.lesson.id));
   return { entries, errors };
 }

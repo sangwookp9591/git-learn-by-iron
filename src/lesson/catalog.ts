@@ -37,6 +37,7 @@ export function parseLesson(raw: string): Lesson {
   for (const step of data.steps) {
     if (!object(step) || typeof step.say !== 'string' || !Array.isArray(step.assert) || !step.assert.length
       || step.assert.some((assertion) => !object(assertion) || Object.keys(assertion).length !== 1 || !Object.values(assertion).every((value) => ['string', 'number', 'boolean'].includes(typeof value)))
+      || (step.solution !== undefined && (!object(step.solution) || !Array.isArray(step.solution.commands) || !step.solution.commands.every((command) => typeof command === 'string') || (step.solution.files !== undefined && !texts(step.solution.files))))
       || !Array.isArray(step.hints) || step.hints.some((hint) => !object(hint) || typeof hint.when !== 'string' || typeof hint.say !== 'string')) {
       throw new Error('단계의 say, assert, hints 형식을 확인하세요.');
     }
