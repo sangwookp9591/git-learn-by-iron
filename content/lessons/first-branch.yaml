@@ -1,0 +1,133 @@
+id: first-branch
+title: 첫 티켓, 첫 브랜치
+difficulty: 초급
+scenario_beat: 2일차 오전 · PAY-231 티켓을 받고 작업할 브랜치를 판다
+setup: fixtures/dalro-payments-day2
+intro: |
+  SAM 님이 첫 티켓 PAY-231을 넘겼습니다. 카드 만료일 검증이 빠져 있어
+  만료된 카드로도 결제 요청이 게이트웨이까지 나가고 있다는 내용입니다.
+  코드를 건드리기 전에 작업할 브랜치부터 만들어야 합니다. JAY 님이
+  "브랜치는 꼭 최신 main에서 따세요"라고 했는데, 어제 클론한 뒤로
+  main에 커밋이 두 개 더 들어왔습니다.
+
+steps:
+  - say: |
+      지금 어느 브랜치에 있는지부터 확인하세요.
+
+          git status
+
+      어제 클론만 하고 아무것도 안 했으니 main에 있을 겁니다.
+      main이 맞는지 눈으로 확인하고 다음으로 넘어가세요.
+    assert:
+      - head.on: main
+      - worktree.clean: true
+    hints:
+      - when: head.on != "main"
+        say: |
+          지금 main이 아닌 브랜치에 있습니다. 브랜치를 파기 전에
+          main으로 돌아가야 합니다.
+
+              git switch main
+      - when: worktree.clean == false
+        say: |
+          워킹 트리에 커밋되지 않은 변경이 남아 있습니다. 이 레슨은
+          깨끗한 상태에서 시작해야 합니다. 변경을 버리려면:
+
+              git restore .
+
+  - say: |
+      리모트에서 최신 main을 받아옵니다.
+
+          git pull
+
+      어제 이후 들어온 커밋 두 개가 로컬에 내려옵니다.
+      받아온 뒤 `git log --oneline -5`로 새 커밋이 보이는지 확인하세요.
+    assert:
+      - head.on: main
+      - head.behind: 0
+      - branch.tracks: origin/main
+    hints:
+      - when: head.behind > 0
+        say: |
+          아직 로컬 main이 origin/main보다 뒤에 있습니다. `git pull`이
+          실행되지 않았거나 도중에 실패했습니다. 다시 실행해 보세요.
+
+              git pull
+
+          "Already up to date."가 나오면 이미 받아온 것이니 그대로
+          다음 단계로 가세요.
+      - when: head.on != "main"
+        say: |
+          pull은 지금 있는 브랜치를 갱신합니다. main에 있지 않으면
+          엉뚱한 브랜치가 갱신됩니다. main으로 먼저 이동하세요.
+
+              git switch main
+
+  - say: |
+      이제 브랜치를 만듭니다. 이름은 팀 규칙에 따라
+      `feature/PAY-231-card-expiry`입니다.
+
+          git switch -c feature/PAY-231-card-expiry
+
+      `-c`는 create의 c입니다. 브랜치를 만들면서 그 브랜치로
+      이동까지 한 번에 합니다.
+    assert:
+      - branch.exists: feature/PAY-231-card-expiry
+      - head.on: feature/PAY-231-card-expiry
+      - branch.base: main
+      - head.detached: false
+    hints:
+      - when: idle > 20s
+        say: |
+          브랜치를 만들면서 바로 그 브랜치로 옮겨가는 명령은
+          `git switch -c <이름>`입니다. 이름은 대소문자까지 그대로
+          `feature/PAY-231-card-expiry`로 쓰세요.
+
+              git switch -c feature/PAY-231-card-expiry
+      - when: branch.exists("feature/PAY-231-card-expiry") && head.on == "main"
+        say: |
+          브랜치는 만들어졌는데 아직 main에 서 있습니다. `-c` 없이
+          `git branch`로 만들면 이동은 안 됩니다. 만든 브랜치로
+          옮겨가세요.
+
+              git switch feature/PAY-231-card-expiry
+      - when: branch.exists("feature/PAY-231") || branch.exists("PAY-231-card-expiry")
+        say: |
+          브랜치 이름이 팀 규칙과 다릅니다. `feature/` 접두어와 티켓
+          번호, 짧은 영어 설명이 모두 필요합니다. 잘못 만든 브랜치를
+          지우고 다시 만드세요.
+
+              git switch main
+              git branch -D <잘못 만든 이름>
+              git switch -c feature/PAY-231-card-expiry
+      - when: head.detached == true
+        say: |
+          지금 어느 브랜치에도 서 있지 않은 상태(detached HEAD)입니다.
+          커밋 해시로 직접 이동했을 때 이렇게 됩니다. main으로 돌아간 뒤
+          다시 브랜치를 만드세요.
+
+              git switch main
+              git switch -c feature/PAY-231-card-expiry
+
+  - say: |
+      마지막으로 지금 서 있는 브랜치를 확인하세요.
+
+          git branch --show-current
+
+      `feature/PAY-231-card-expiry`가 나오면 준비가 끝난 겁니다.
+      이제 코드를 고쳐도 main은 안전합니다.
+    assert:
+      - head.on: feature/PAY-231-card-expiry
+      - worktree.clean: true
+      - branch.exists: main
+    hints:
+      - when: idle > 20s
+        say: |
+          지금 어느 브랜치에 있는지 보는 명령입니다.
+
+              git branch --show-current
+
+          `git status` 첫 줄에도 같은 정보가 나옵니다.
+
+recap: |
+  브랜치는 최신 main에서 판다 — 이 순서를 건너뛰면 며칠 뒤 충돌로 돌아온다.

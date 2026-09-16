@@ -1,0 +1,200 @@
+id: split-commits
+title: 리뷰 요청대로 커밋 쪼개기
+difficulty: 중급
+scenario_beat: 3일차 오후 · DEREK 님이 커밋을 나눠 달라고 했다
+setup: fixtures/dalro-payments-day3-review
+intro: |
+  MR에 DEREK 님 코멘트가 달렸습니다.
+
+    "잘 봤습니다. 로직은 문제없어 보여요. 근데 커밋 하나에 검증 로직이랑
+     에러 응답 바꾼 게 같이 있어서요, 이거 커밋 좀 나눠주실 수 있을까요?"
+
+  브랜치에는 커밋이 두 개 있고, 문제의 커밋은 최신 커밋입니다. 이미
+  푸시해서 MR에 올라가 있는 상태입니다. 방법은 여러 가지가 있으니
+  어떤 걸 쓸지는 직접 고르세요.
+
+steps:
+  - say: |
+      먼저 지금 상태를 파악하세요. 최신 커밋이 어떤 파일을 담고 있는지,
+      그 안에 정말 두 가지가 섞여 있는지 확인합니다.
+
+      확인이 끝나면 그 커밋을 히스토리에서 풀어내세요. 코드는 그대로
+      두고 커밋만 없어져야 합니다. 스테이징 영역도 비어 있어야
+      다시 골라 담을 수 있습니다.
+    assert:
+      - commit.count_on_branch: 1
+      - worktree.has_changes: src/payment/PaymentValidator.ts
+      - worktree.has_changes: src/payment/PaymentController.ts
+      - index.empty: true
+      - head.on: feature/PAY-231-card-expiry
+    hints:
+      - when: worktree.clean == true && commit.count_on_branch == 1
+        say: |
+          커밋은 풀렸는데 변경 내용이 사라졌습니다. `--hard`를 쓰면
+          커밋뿐 아니라 파일 내용까지 되돌아갑니다. 어제 작업이
+          워킹 트리에서 없어진 상태입니다.
+
+          `reset`은 HEAD를 옮길 뿐이고, 옮기기 전 위치는 reflog에
+          남아 있습니다. 되찾아 오세요.
+
+              git reflog
+              git reset --hard <풀기 직전 해시>
+
+          그다음 다시 시도하되, 이번엔 워킹 트리를 건드리지 않는
+          모드를 쓰세요. `reset`에는 세 가지 모드가 있습니다.
+          어느 쪽이 파일을 그대로 두는지 생각해 보세요.
+      - when: index.has_staged && commit.count_on_branch == 1
+        say: |
+          커밋은 풀렸지만 변경이 전부 스테이징 영역에 그대로 올라가
+          있습니다. `--soft`는 커밋만 풀고 스테이징은 유지합니다.
+          지금은 골라 담아야 하니 스테이징이 비어 있어야 편합니다.
+
+              git reset
+
+          옵션 없이 치면 `--mixed`가 기본입니다. 스테이징만 풀고
+          파일은 건드리지 않습니다.
+      - when: commit.count_on_branch == 0
+        say: |
+          커밋이 하나 더 풀렸습니다. `HEAD~2`를 지정했거나 `reset`을
+          두 번 실행한 것입니다. 살려야 할 첫 번째 커밋까지
+          없어졌으니 한 단계 되돌리세요.
+
+              git reflog
+              git reset --mixed <첫 커밋이 살아 있던 해시>
+      - when: requested
+        say: |
+          커밋을 히스토리에서만 빼고 변경은 워킹 트리에 남기는 명령입니다.
+
+              git reset --mixed HEAD~1
+
+          `--mixed`는 기본값이라 생략해도 됩니다. `--soft`는 스테이징까지
+          유지하고, `--hard`는 파일까지 되돌립니다. 지금 필요한 건
+          가운데입니다.
+
+  - say: |
+      이제 검증 로직 변경만 골라 담아 첫 번째 커밋을 만드세요.
+
+      PaymentValidator.ts 안에는 검증 규칙 추가와 에러 메시지 상수가
+      같이 들어 있습니다. 파일 전체가 아니라 변경 덩어리 단위로
+      골라야 합니다.
+
+      메시지는 `feat(payment): 카드 만료일 검증 추가`, 꼬리말은
+      `Refs: PAY-231`입니다.
+    assert:
+      - commit.count_on_branch: 2
+      - commit.subject_matches: '^feat\(payment\): '
+      - commit.touches: src/payment/PaymentValidator.ts
+      - commit.not_touches: src/payment/PaymentController.ts
+      - commit.trailer: 'Refs: PAY-231'
+    hints:
+      - when: commit.touches("src/payment/PaymentController.ts")
+        say: |
+          컨트롤러 변경이 첫 커밋에 같이 들어갔습니다. `git add <파일>`은
+          그 파일의 변경 전부를 담습니다. 나누려면 덩어리 단위로
+          고르는 모드가 필요합니다.
+
+              git reset --mixed HEAD~1
+              git add -p src/payment/PaymentValidator.ts
+
+          하나씩 물어볼 때 `y`는 담기, `n`은 건너뛰기, `s`는 덩어리를
+          더 잘게 쪼개기입니다.
+      - when: commit.count_on_branch == 1
+        say: |
+          아직 커밋이 만들어지지 않았습니다. 스테이징한 뒤 커밋까지
+          해야 다음 단계로 넘어갑니다.
+
+              git diff --staged
+              git commit
+
+          `git diff --staged`로 담긴 게 검증 로직뿐인지 먼저 확인하세요.
+      - when: requested
+        say: |
+          한 파일 안에서 변경 덩어리를 골라 담는 명령입니다.
+
+              git add -p src/payment/PaymentValidator.ts
+
+          덩어리가 붙어 있어 나눠지지 않으면 `s`로 쪼개고, 그래도
+          안 되면 `e`로 직접 편집할 수 있습니다.
+
+  - say: |
+      남은 변경으로 두 번째 커밋을 만드세요. 만료된 카드 요청에 400을
+      반환하도록 고친 부분입니다.
+
+      이건 새 기능이 아니라 잘못된 응답을 바로잡은 것이니 타입을
+      다시 판단하세요.
+    assert:
+      - commit.count_on_branch: 3
+      - commit.subject_matches: '^fix\(payment\): '
+      - commit.touches: src/payment/PaymentController.ts
+      - commit.trailer: 'Refs: PAY-231'
+      - worktree.clean: true
+      - index.empty: true
+    hints:
+      - when: commit.subject_matches("^feat")
+        say: |
+          타입을 다시 보세요. 검증 로직 자체는 앞 커밋에서 새로
+          생긴 기능이지만, 이 커밋은 만료된 카드에 500을 뱉던 응답을
+          400으로 바로잡은 것입니다. 명세와 어긋난 동작을 고쳤으니
+          `fix`입니다.
+
+              git commit --amend
+      - when: worktree.clean == false
+        say: |
+          아직 커밋되지 않은 변경이 남아 있습니다. 두 커밋에 나눠
+          담고 나면 워킹 트리가 깨끗해야 합니다.
+
+              git status
+              git diff
+      - when: requested
+        say: |
+          남은 변경 전부를 담아 커밋합니다.
+
+              git add -A
+              git commit -m "fix(payment): 만료 카드 요청에 400 반환" \
+                         -m "Refs: PAY-231"
+
+  - say: |
+      두 커밋이 각각 무엇을 담고 있는지 확인하고, 다시 푸시하세요.
+
+      히스토리를 고쳤기 때문에 그냥 푸시하면 거절당합니다. 거절당하는
+      걸 한 번 보고, 어떤 옵션이 필요한지 판단하세요.
+
+      단, `--force`는 쓰지 않습니다. 이유는 힌트에 있습니다.
+    assert:
+      - remote.branch_head: feature/PAY-231-card-expiry
+      - head.behind: 0
+      - head.ahead: 0
+      - commit.count_on_branch: 3
+      - worktree.clean: true
+    hints:
+      - when: push_rejected
+        say: |
+          예상된 거절입니다. 리모트에 있는 커밋과 로컬 커밋이 이제
+          다른 것이라서 Git이 "뭔가 잃어버릴 것 같다"며 막은 것입니다.
+
+          이럴 때 쓰는 옵션이 있습니다. 내가 마지막으로 본 리모트
+          상태와 지금 리모트가 같을 때만 덮어쓰는 옵션입니다.
+          다르면 거절합니다.
+      - when: command_used("push --force")
+        say: |
+          `--force`는 리모트에 뭐가 있든 무조건 덮어씁니다. 그 사이에
+          누가 이 브랜치에 커밋을 올렸다면 그대로 사라집니다.
+
+          `--force-with-lease`는 내가 본 상태와 리모트가 같을 때만
+          덮어쓰고, 다르면 거절합니다. 안전장치가 하나 더 있습니다.
+          앞으로도 이쪽만 쓰세요.
+
+              git push --force-with-lease
+      - when: requested
+        say: |
+          히스토리를 고친 브랜치를 안전하게 다시 올리는 명령입니다.
+
+              git push --force-with-lease
+
+          올리기 전에 커밋 내용을 한 번 더 확인하는 게 좋습니다.
+
+              git show --stat HEAD
+              git show --stat HEAD~1
+
+recap: |
+  커밋을 쪼개는 건 리뷰어를 위한 일이고, 히스토리를 고쳤으면 --force가 아니라 --force-with-lease로 올린다.

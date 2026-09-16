@@ -1,0 +1,185 @@
+id: force-push-recovery
+title: 사라진 커밋 되찾기
+difficulty: 고급
+scenario_beat: 보너스 · 동료의 force push로 내 커밋 3개가 사라졌다
+setup: fixtures/dalro-payments-force-push-incident
+intro: |
+  월요일 아침 팀 채널입니다.
+
+    09:12  JAY:  금요일 밤에 PAY-219 브랜치 리베이스하고 강제로 밀었어요
+    09:38  IRON: JAY 님 저 PAY-247 브랜치 커밋 3개가 없어졌는데요
+    09:41  JAY:  아 제가 브랜치를 잘못 봤나 봐요... 죄송합니다. 복구 되나요?
+
+  커밋 3개가 브랜치에서 사라졌습니다. 그런데 그 사이 JAY 님이 올린
+  커밋은 지금 브랜치에 살아 있습니다. 양쪽을 다 살려야 합니다.
+  이 레슨은 지시를 주지 않습니다. 상태를 조사하는 것부터가 문제입니다.
+
+steps:
+  - say: |
+      브랜치를 원래대로 되돌리세요.
+
+      지금 어디에 서 있는지, 원래 어디였어야 하는지부터 알아내야
+      합니다. 무엇을 실행할지는 직접 정하세요.
+
+      복구를 시작하기 전에, 지금 위치를 잃어버려도 다시 찾아올 수
+      있는 표시를 남겨두세요.
+    assert:
+      - branch.exists: backup/before-recovery
+      - head.on: hotfix/PAY-247-expiry-zero-based
+      - worktree.clean: true
+    hints:
+      - when: requested
+        say: |
+          지금 브랜치가 어디를 가리키고 있는지, 원래 어디였어야 하는지
+          부터 확인해 보세요. 로그에 무엇이 남아 있고 무엇이 없는지
+          비교하는 게 출발점입니다.
+      - when: requested
+        say: |
+          Git은 브랜치가 가리키는 위치와 별개로, HEAD가 움직인 기록을
+          따로 남깁니다. 커밋이 브랜치에서 떨어져 나가도 그 기록은
+          30일가량 남아 있습니다.
+      - when: requested
+        say: |
+          기록을 보는 명령은 `git reflog`입니다. 그리고 복구를 시작하기
+          전에 지금 위치에 이름을 붙여두세요. 브랜치를 하나 더 파는
+          것만으로 충분합니다.
+
+              git branch backup/before-recovery
+      - when: branch.exists("backup/before-recovery") == false && command_used("reset --hard")
+        say: |
+          안전지대를 만들지 않은 채로 리셋했습니다. 지금 위치를
+          잃으면 JAY 님 커밋을 다시 찾기가 훨씬 어려워집니다.
+          reflog로 돌아간 뒤, 먼저 브랜치로 표시부터 하세요.
+
+              git reflog
+              git reset --hard <리셋 직전 해시>
+              git branch backup/before-recovery
+
+  - say: |
+      사라진 커밋 3개를 찾아내세요.
+
+      reflog에서 해시를 확인하고, 각 커밋이 실제로 무엇을 담고
+      있는지 눈으로 확인한 뒤에 다음으로 넘어가세요. 엉뚱한 커밋을
+      되살리면 복구가 아니라 또 다른 사고가 됩니다.
+    assert:
+      - reflog.contains: 'refactor(payment): 만료월 판별을 별도 함수로 추출'
+      - reflog.contains: 'fix(payment): 게이트웨이 코드 매핑 보정'
+      - reflog.contains: 'test(payment): 0-based 만료월 경계 테스트 추가'
+      - head.on: hotfix/PAY-247-expiry-zero-based
+    hints:
+      - when: requested
+        say: |
+          `git reflog`의 각 줄은 HEAD가 그때 어디를 가리켰는지를
+          보여줍니다. `pull: Fast-forward` 바로 아래 줄들이
+          사라지기 전 커밋입니다.
+      - when: requested
+        say: |
+          해시를 찾았으면 내용을 확인하세요.
+
+              git show <해시> --stat
+
+          `--stat`은 어떤 파일이 얼마나 바뀌었는지만 보여줍니다.
+          전체 디프를 보려면 `--stat` 없이 실행하세요.
+
+  - say: |
+      브랜치를 복구하세요.
+
+      조건이 둘입니다. 사라진 커밋 3개가 전부 살아 있어야 하고,
+      JAY 님이 올린 커밋도 그대로 남아 있어야 합니다.
+
+      한쪽만 살리는 방법은 통과하지 않습니다.
+    assert:
+      - commit.subject_on_branch: 'refactor(payment): 만료월 판별을 별도 함수로 추출'
+      - commit.subject_on_branch: 'fix(payment): 게이트웨이 코드 매핑 보정'
+      - commit.subject_on_branch: '0-based 만료월 경계 테스트 추가'
+      - commit.subject_on_branch: 'perf(payment): 결제 내역 조회 인덱스 추가'
+      - worktree.contains: src/payment/__tests__/expiry-boundary.test.ts
+      - head.detached: false
+      - head.on: hotfix/PAY-247-expiry-zero-based
+    hints:
+      - when: 'commit.subject_missing("perf(payment): 결제 내역 조회 인덱스 추가")'
+        say: |
+          내 커밋 3개는 돌아왔는데 JAY 님 커밋이 사라졌습니다.
+          reflog 위치로 그냥 리셋하면 그 이후에 올라온 커밋이 전부
+          날아갑니다. 이번 사고를 복구하다가 같은 사고를 한 번 더
+          낸 셈입니다.
+
+          아까 만들어 둔 안전지대로 돌아가세요.
+
+              git reset --hard backup/before-recovery
+
+          그다음에는 브랜치 위치를 통째로 옮기는 대신, 잃어버린
+          커밋만 지금 브랜치 위로 얹는 방법을 생각해 보세요.
+      - when: head.detached == true
+        say: |
+          지금 어느 브랜치에도 서 있지 않습니다. 커밋 해시로 직접
+          이동하면 detached HEAD가 됩니다. 여기서 만든 커밋은
+          브랜치에 안 붙습니다.
+
+              git switch hotfix/PAY-247-expiry-zero-based
+
+          해시를 확인만 하려면 이동하지 말고 `git show <해시>`를
+          쓰세요.
+      - when: cherry_pick_conflict
+        say: |
+          체리픽 도중 충돌이 났습니다. 되살리는 커밋이 건드리는 부분을
+          JAY 님 커밋도 건드린 것입니다.
+
+          파일을 열어 양쪽 변경을 합쳐 쓴 뒤, 커밋하지 말고
+          `add`까지만 하고 계속하세요.
+
+              git status
+              git add <해결한 파일>
+              git cherry-pick --continue
+
+          엉켰으면 `git cherry-pick --abort`로 시작 전으로 돌아갑니다.
+      - when: requested
+        say: |
+          커밋 하나씩을 지금 브랜치 위로 옮겨 붙이는 명령입니다.
+          해시를 오래된 것부터 순서대로 적습니다.
+
+              git cherry-pick <해시1> <해시2> <해시3>
+
+  - say: |
+      복구가 맞는지 검증하고 리모트에 반영하세요.
+
+      히스토리만 맞는 게 아니라 코드도 맞아야 합니다. 테스트가
+      통과하는지 확인한 뒤에 올리세요. 다 확인되면 임시로 만들어
+      둔 표시도 정리합니다.
+    assert:
+      - worktree.clean: true
+      - index.empty: true
+      - remote.branch_head: hotfix/PAY-247-expiry-zero-based
+      - head.ahead: 0
+      - branch.absent: backup/before-recovery
+      - head.on: hotfix/PAY-247-expiry-zero-based
+    hints:
+      - when: command_used("push --force")
+        say: |
+          이번 사고 자체가 `--force`로 생긴 일입니다. 같은 걸 다시
+          쓰면 지금 이 순간 누가 올린 커밋을 또 덮어씁니다.
+
+              git push --force-with-lease
+
+          이쪽은 내가 마지막으로 본 리모트 상태와 다르면 거절합니다.
+      - when: branch.exists("backup/before-recovery") && remote.branch_head("hotfix/PAY-247-expiry-zero-based")
+        say: |
+          복구와 푸시는 끝났습니다. 임시 표시용 브랜치를 지우면
+          레슨이 끝납니다.
+
+              git branch -D backup/before-recovery
+
+          확신이 설 때까지 남겨두는 것도 나쁘지 않지만, 정리하지
+          않으면 이런 브랜치가 계속 쌓입니다.
+      - when: requested
+        say: |
+          검증 순서입니다.
+
+              git log --oneline --graph -10
+              git status
+              npm test
+              git push --force-with-lease
+              git branch -D backup/before-recovery
+
+recap: |
+  Git에서 커밋은 웬만해선 안 지워진다. 복구를 시작하기 전에 지금 위치에 이름부터 붙여라.

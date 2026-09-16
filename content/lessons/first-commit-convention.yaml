@@ -1,0 +1,195 @@
+id: first-commit-convention
+title: 첫 커밋과 컨벤션
+difficulty: 초급
+scenario_beat: 2일차 오후 · 만료일 검증을 구현하고 컨벤션에 맞춰 커밋한다
+setup: fixtures/dalro-payments-day2-afternoon
+intro: |
+  만료일 검증을 다 구현했습니다. PaymentValidator에 검증 로직을 넣고,
+  컨트롤러에서 400을 반환하도록 고치고, 테스트도 붙였습니다. 그런데
+  `git status`를 보니 로컬 설정 파일인 .env.local이 같이 잡혀 있습니다.
+  JAY 님이 "add . 습관 들이면 안 좋아요"라고 했던 게 이 때문입니다.
+
+steps:
+  - say: |
+      먼저 뭐가 바뀌었는지 확인하세요.
+
+          git status
+
+      수정된 파일 3개와 추적되지 않는 .env.local이 보일 겁니다.
+      .env.local은 사람마다 값이 다르고 키가 들어갈 수도 있어서
+      저장소에 올리면 안 됩니다.
+
+      기능과 관련된 파일 3개만 스테이징하세요.
+
+          git add src/payment/PaymentValidator.ts \
+                  src/payment/PaymentController.ts \
+                  src/payment/__tests__/validator.test.ts
+    assert:
+      - index.staged: src/payment/PaymentValidator.ts
+      - index.staged: src/payment/PaymentController.ts
+      - index.staged: src/payment/__tests__/validator.test.ts
+      - index.not_staged: .env.local
+    hints:
+      - when: index.staged(".env.local")
+        say: |
+          .env.local이 스테이징 영역에 들어갔습니다. `git add .`을 쓰면
+          추적되지 않는 파일까지 전부 담깁니다. 이 파일만 다시 빼세요.
+
+              git restore --staged .env.local
+
+          커밋 전이라 파일 내용은 그대로 남아 있습니다.
+      - when: idle > 20s
+        say: |
+          파일을 스테이징 영역에 올리는 명령은 `git add <경로>`입니다.
+          여러 개를 한 번에 적어도 되고, 한 줄씩 나눠 세 번 쳐도 됩니다.
+
+              git add src/payment/PaymentValidator.ts
+              git add src/payment/PaymentController.ts
+              git add src/payment/__tests__/validator.test.ts
+      - when: index.empty
+        say: |
+          아직 아무것도 스테이징되지 않았습니다. `git status`의
+          "Changes not staged for commit" 아래 있는 파일들이
+          아직 올라가지 않은 것입니다.
+
+  - say: |
+      올린 것만 다시 확인하세요.
+
+          git diff --staged
+
+      `git diff`는 아직 안 올린 변경을, `git diff --staged`는 올린
+      변경을 보여줍니다. 커밋 직전에 이걸 보는 습관이 오타와
+      디버그 코드를 걸러냅니다.
+    assert:
+      - index.staged: src/payment/PaymentValidator.ts
+      - index.not_staged: .env.local
+    hints:
+      - when: idle > 20s
+        say: |
+          스테이징된 변경만 보는 명령입니다.
+
+              git diff --staged
+
+          `--cached`도 같은 뜻입니다. 둘 중 아무거나 쓰면 됩니다.
+
+  - say: |
+      컨벤션에 맞춰 커밋하세요. 형식은 `타입(스코프): 설명`이고,
+      타입과 스코프는 영어, 설명은 한글입니다. 새 기능이니 타입은
+      `feat`, 스코프는 `payment`입니다.
+
+      꼬리말에 티켓 번호도 넣습니다.
+
+          git commit
+
+      에디터가 열리면 이렇게 쓰세요.
+
+          feat(payment): 카드 만료일 검증 추가
+
+          Refs: PAY-231
+    assert:
+      - commit.subject_matches: '^feat\(payment\): .+'
+      - commit.trailer: 'Refs: PAY-231'
+      - commit.touches: src/payment/PaymentValidator.ts
+      - commit.not_touches: .env.local
+      - index.empty: true
+    hints:
+      - when: commit.subject_matches("^(fix|chore|refactor)")
+        say: |
+          타입이 맞지 않습니다. 이 커밋 전에는 만료일 검증이 아예
+          없었습니다. 잘못된 동작을 고친 게 아니라 없던 기능이
+          생긴 것이므로 `feat`입니다. 메시지만 고치면 됩니다.
+
+              git commit --amend
+      - when: commit.trailer_missing("Refs")
+        say: |
+          꼬리말에 티켓 번호가 없습니다. 제목 아래 빈 줄을 두고
+          `Refs: PAY-231`을 넣으세요.
+
+              git commit --amend
+      - when: commit.subject_matches("\\.$")
+        say: |
+          제목 끝에 마침표가 붙었습니다. 커밋 제목에는 마침표를
+          쓰지 않습니다.
+
+              git commit --amend
+      - when: idle > 20s
+        say: |
+          `git commit`만 치면 에디터가 열립니다. 제목 한 줄, 빈 줄,
+          꼬리말 순서로 씁니다. 한 줄짜리는 `-m`으로도 됩니다.
+
+              git commit -m "feat(payment): 카드 만료일 검증 추가" \
+                         -m "Refs: PAY-231"
+
+  - say: |
+      이제 .env.local이 다시는 잡히지 않게 .gitignore에 넣습니다.
+      파일 끝에 `.env.local` 한 줄을 추가하세요.
+
+      그리고 이건 **별도 커밋**으로 남깁니다. 기능 커밋에 설정 파일이
+      섞이면 나중에 기능만 되돌릴 때 설정까지 딸려 갑니다.
+
+          git add .gitignore
+          git commit -m "chore: .gitignore에 .env.local 추가" \
+                     -m "Refs: PAY-231"
+    assert:
+      - worktree.file_ignored: .env.local
+      - commit.subject_matches: '^chore: '
+      - commit.touches: .gitignore
+      - commit.not_touches: .env.local
+      - worktree.clean: true
+    hints:
+      - when: commit.touches(".env.local")
+        say: |
+          .env.local 자체가 커밋에 들어갔습니다. .gitignore는 이미
+          추적 중인 파일에는 효과가 없습니다. 커밋을 취소하고
+          .gitignore만 다시 담으세요.
+
+              git reset --mixed HEAD~1
+              git rm --cached .env.local
+              git add .gitignore
+              git commit -m "chore: .gitignore에 .env.local 추가"
+      - when: worktree.file_ignored(".env.local") == false
+        say: |
+          .env.local이 아직 무시되지 않고 있습니다. .gitignore에 줄이
+          제대로 들어갔는지 확인하세요. 파일 끝에 줄바꿈이 없어서
+          앞줄과 붙어버린 경우가 흔합니다.
+
+              cat .gitignore
+              git check-ignore -v .env.local
+      - when: commit.subject_matches("^(feat|fix)")
+        say: |
+          .gitignore 수정은 기능도 버그 수정도 아닙니다. 빌드 결과도
+          CI도 건드리지 않으니 `chore`입니다.
+
+              git commit --amend
+
+  - say: |
+      마지막으로 커밋 두 개가 잘 들어갔는지 확인하세요.
+
+          git log --oneline -3
+          git show --stat HEAD
+          git show --stat HEAD~1
+
+      각 커밋이 어떤 파일을 담고 있는지 눈으로 보세요.
+      한 커밋에 한 가지 일만 들어 있어야 합니다.
+    assert:
+      - commit.count_on_branch: 2
+      - worktree.clean: true
+      - head.on: feature/PAY-231-card-expiry
+    hints:
+      - when: commit.count_on_branch != 2
+        say: |
+          브랜치에 커밋이 2개가 아닙니다. 기능 커밋 하나와 .gitignore
+          커밋 하나, 둘로 나뉘어 있어야 합니다. 지금 상태를 보세요.
+
+              git log --oneline main..HEAD
+
+          하나로 합쳐졌다면 `git reset --mixed HEAD~1`로 풀고
+          다시 나눠 담으면 됩니다.
+      - when: idle > 20s
+        say: |
+          커밋이 담고 있는 파일 목록을 보는 명령입니다.
+
+              git show --stat HEAD
+
+recap: |
+  커밋 단위의 기준은 "이것만 되돌려도 저장소가 멀쩡한가"다.
