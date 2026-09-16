@@ -27,6 +27,6 @@ export function loadLessons(): { entries: LessonEntry[]; errors: string[] } {
       errors.push(`${source}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  entries.sort((a, b) => Number(!!b.setup) - Number(!!a.setup) || a.lesson.title.localeCompare(b.lesson.title));
+  entries.sort((a, b) => Number(!!b.setup) - Number(!!a.setup) || ['초급', '중급', '고급'].indexOf(a.lesson.difficulty) - ['초급', '중급', '고급'].indexOf(b.lesson.difficulty) || a.lesson.id.localeCompare(b.lesson.id));
   return { entries, errors };
 }

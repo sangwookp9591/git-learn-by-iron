@@ -1,6 +1,8 @@
+import * as git from 'isomorphic-git';
 import { createRepo, type LessonRepo } from '../engine/repo.ts';
 import { readState } from '../engine/state.ts';
-import { run } from '../terminal/run.ts';
+import { parse, type ParsedCommand } from '../terminal/parse.ts';
+import { run, type Editor } from '../terminal/run.ts';
 import { evaluateAssertions, type Assessment, type Snapshot } from './assert.ts';
 import { evaluateHint } from './hints.ts';
 import { inspectLesson, type StepSupport } from './catalog.ts';
@@ -16,6 +18,8 @@ export class LessonRunner {
   assessment: Assessment | null = null;
   readonly support: StepSupport[];
   readonly skipped: { step: number; reasons: string[] }[] = [];
+  readonly commands: ParsedCommand[] = [];
+  lastOutput = '';
   private revealed = new Set<number>();
 
   constructor(lesson: Lesson, repo: LessonRepo, state: Snapshot, support = inspectLesson(lesson, true)) {
@@ -37,9 +41,11 @@ export class LessonRunner {
     this.assessment = null;
   }
 
-  async execute(command: string): Promise<string> {
+  async execute(command: string, editor?: Editor): Promise<string> {
     this.touch();
-    const output = await run(this.repo, command);
+    const output = await run(this.repo, command, editor);
+    try { this.commands.push(parse(command)); } catch { /* Invalid syntax is not a command. */ }
+    this.lastOutput = output;
     await this.refresh();
     return output;
   }
@@ -93,7 +99,7 @@ export class LessonRunner {
 
   hints(now = Date.now()): Hint[] {
     if (this.complete) return [];
-    const context = { state: this.state, baseline: this.baseline, idleMs: Math.max(0, now - this.lastActivity) };
+    const context = { state: this.state, baseline: this.baseline, idleMs: Math.max(0, now - this.lastActivity), commands: this.commands, lastOutput: this.lastOutput };
     this.step.hints.forEach((hint, index) => {
       if (this.lesson.difficulty !== '고급' && evaluateHint(hint.when, context)) this.revealed.add(index);
     });
@@ -102,7 +108,7 @@ export class LessonRunner {
 
   requestHint(): Hint | undefined {
     if (this.complete) return undefined;
-    const context = { state: this.state, baseline: this.baseline, idleMs: Infinity, requested: true };
+    const context = { state: this.state, baseline: this.baseline, idleMs: Infinity, requested: true, commands: this.commands, lastOutput: this.lastOutput };
     const next = this.step.hints.findIndex((hint, index) => !this.revealed.has(index) && evaluateHint(hint.when, context));
     if (next < 0) return undefined;
     this.revealed.add(next);
@@ -113,12 +119,50 @@ export class LessonRunner {
 /** Every attempt gets its own local repository; restarting cannot alter another lesson. */
 export async function startLesson(lesson: Lesson, setup: Setup | null, support = inspectLesson(lesson, !!setup)): Promise<LessonRunner> {
   const repo = await createRepo(`lesson:${lesson.id}:${crypto.randomUUID()}`);
-  for (const commit of setup?.commits ?? []) {
-    for (const [path, content] of Object.entries(commit.files)) await repo.writeFile(path, content);
-    await repo.add('.');
-    await repo.commit(commit.message);
+  if (setup) {
+    const commitFiles = async (target: LessonRepo, commit: Setup['commits'][number]) => {
+      for (const [path, content] of Object.entries(commit.files)) await target.writeFile(path, content);
+      await target.add('.');
+      return target.commit(commit.message);
+    };
+    const subjects = new Map<string, string[]>();
+    for (const commit of setup.commits) {
+      const oid = await commitFiles(repo, commit);
+      const subject = commit.message.split('\n')[0];
+      subjects.set(subject, [...subjects.get(subject) ?? [], oid]);
+    }
+    const head = await repo.headOid();
+    if (setup.branch && setup.branch !== 'main') await repo.switch(setup.branch, true);
+    if (setup.remote) {
+      const remote = await repo.connectOrigin();
+      for (const [name, spec] of Object.entries(setup.remote.branches)) {
+        const candidates = spec.at && spec.at !== 'head' ? subjects.get(spec.at) : head ? [head] : [];
+        if (candidates?.length !== 1) throw new Error(`remote.${name}.at 분기점을 유일하게 찾을 수 없습니다: ${spec.at ?? 'head'}`);
+        const base = candidates[0];
+        await repo.copyObjectsTo(remote, base);
+        await git.writeRef({ ...remote.context, ref: `refs/heads/${name}`, value: base, force: true });
+        await remote.checkout(name);
+        for (const commit of spec.ahead ?? []) await commitFiles(remote, commit);
+        // Local branches remain at the clone point; ahead commits exist only on origin.
+        if (name !== await repo.currentBranch()) await git.writeRef({ ...repo.context, ref: `refs/heads/${name}`, value: base, force: true });
+        if (spec.tracks) await repo.track(name);
+      }
+      await repo.fetch();
+    }
+    if (setup.dangling?.length) {
+      if (!head) throw new Error('dangling 커밋에는 기존 히스토리가 필요합니다.');
+      // The incident's surviving tip is the colleague's commit; lost work forks before it.
+      const parent = (await git.readCommit({ ...repo.context, oid: head })).commit.parent[0];
+      await repo.resetTo(parent ?? head, 'hard');
+      for (const commit of setup.dangling) {
+        const old = await repo.headOid();
+        const oid = await commitFiles(repo, commit);
+        await repo.recordHead(old, oid, commit.reason);
+      }
+      await repo.resetTo(head, 'hard', 'pull: Fast-forward');
+    }
+    for (const [path, content] of Object.entries({ ...setup.working_tree.modified, ...setup.working_tree.untracked })) await repo.writeFile(path, content);
+    if (setup.working_tree.staged.length) await repo.add(setup.working_tree.staged);
   }
-  if (setup?.branch && setup.branch !== 'main') await repo.switch(setup.branch, true);
-  for (const [path, content] of Object.entries(setup?.worktree ?? {})) await repo.writeFile(path, content);
   return new LessonRunner(lesson, repo, await readState(repo), support);
 }

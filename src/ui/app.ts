@@ -2,6 +2,9 @@ import { loadLessons } from '../lesson/load.ts';
 import { explainFailure } from '../lesson/assert.ts';
 import { startLesson, type LessonRunner } from '../lesson/runner.ts';
 import type { LessonEntry } from '../lesson/catalog.ts';
+import '../styles/tokens.css';
+import '../styles/base.css';
+import '../styles/components.css';
 import './style.css';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text?: string): HTMLElementTagNameMap[K] {
@@ -52,21 +55,22 @@ export function mountApp(root: HTMLElement): void {
       </aside>
       <div class="workbench">
         <section class="panel source-panel" aria-labelledby="source-title"><header class="panel-header"><h2 id="source-title"><span aria-hidden="true">⑂</span> 소스 컨트롤</h2><span id="source-branch" class="branch-label"></span></header>
-          <div class="source-content"><p class="panel-caption">이번 커밋에 담을 변경을 골라 보세요.</p><div id="staged-list"></div><div id="worktree-list"></div></div>
-          <form id="commit-form" class="commit-form"><label class="sr-only" for="commit-message">커밋 메시지</label><input id="commit-message" placeholder="커밋 메시지를 입력하세요" autocomplete="off" maxlength="1000"><button id="commit-button" class="commit-button" type="submit">✓ 커밋하기</button></form>
+          <div class="source-content"><p class="panel-caption">이번 커밋에 담을 변경을 골라 보세요.</p><form id="file-form"><label for="file-path">파일 편집</label><input id="file-path" value=".gitignore" aria-label="편집할 파일 경로"><button type="submit">열기</button></form><div id="staged-list"></div><div id="worktree-list"></div></div>
+          <form id="commit-form" class="commit-form"><label class="sr-only" for="commit-message">커밋 메시지</label><textarea id="commit-message" placeholder="커밋 메시지를 입력하세요" rows="3" maxlength="4000"></textarea><button id="commit-button" class="commit-button" type="submit">✓ 커밋하기</button></form>
         </section>
         <section class="panel graph-panel" aria-labelledby="graph-title"><header class="panel-header"><h2 id="graph-title"><span aria-hidden="true">⌘</span> 커밋 그래프</h2><span id="commit-count" class="muted"></span></header><div class="graph-content"><div id="head-label" class="head-label"></div><ol id="commit-graph" class="commit-graph"></ol><div class="graph-note"><span class="graph-dot"></span> 한 점이 하나의 커밋이에요.</div></div></section>
         <section class="terminal-panel" aria-labelledby="terminal-title"><header class="terminal-header"><h2 id="terminal-title"><span aria-hidden="true">›_</span> 터미널</h2><span class="terminal-local"><span></span> 로컬 실습</span><button id="clear-terminal" class="terminal-clear" aria-label="터미널 출력 지우기">지우기</button></header><div id="terminal-output" class="terminal-output" role="log" aria-live="polite" aria-relevant="additions"></div><form id="terminal-form" class="terminal-form"><span class="prompt" aria-hidden="true">❯</span><label class="sr-only" for="terminal-input">Git 명령어</label><input id="terminal-input" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="git status" aria-describedby="terminal-help"><button type="submit" class="terminal-submit" aria-label="명령어 실행">↵</button></form><div id="terminal-help" class="terminal-help"><span>명령어를 입력하고 Enter</span><span>↑ ↓ 이전 명령</span></div></section>
       </div>
     </main>
     <footer class="page-footer"><span>YOUR REPO. YOUR PACE.</span><span>버튼도, 명령어도. 같은 Git을 배웁니다.</span><span>새로고침하면 새 실습으로 시작합니다.</span></footer>
-    <dialog id="file-dialog"><form method="dialog"><h2 id="file-dialog-title"></h2><button class="icon-button" aria-label="파일 닫기">×</button></form><pre id="file-content"></pre></dialog>`;
+    <dialog id="file-dialog"><form method="dialog"><h2 id="file-dialog-title"></h2><button class="icon-button" aria-label="파일 닫기">×</button></form><pre id="file-content"></pre></dialog>
+    <dialog id="edit-dialog" aria-labelledby="edit-title"><form method="dialog"><h2 id="edit-title"></h2><label for="edit-content">내용</label><textarea id="edit-content" rows="18" cols="80" spellcheck="false"></textarea><div><button value="cancel">취소</button><button value="save">저장</button></div></form></dialog>`;
 
   const get = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
   const catalog = loadLessons();
   const select = get<HTMLSelectElement>('lesson-select');
   const commandInput = get<HTMLInputElement>('terminal-input');
-  const messageInput = get<HTMLInputElement>('commit-message');
+  const messageInput = get<HTMLTextAreaElement>('commit-message');
   let runner: LessonRunner | undefined;
   let entry: LessonEntry | undefined;
   let busy = false;
@@ -88,8 +92,20 @@ export function mountApp(root: HTMLElement): void {
 
   function lock(value: boolean) {
     busy = value;
-    root.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>('button:not(#theme-toggle), input, select').forEach((control) => { control.disabled = value; });
+    root.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('button:not(#theme-toggle), input, select, textarea').forEach((control) => { control.disabled = value; });
     root.setAttribute('aria-busy', String(value));
+  }
+
+  async function edit(title: string, initial: string): Promise<string | null> {
+    const dialog = get<HTMLDialogElement>('edit-dialog');
+    get('edit-title').textContent = title;
+    const content = get<HTMLTextAreaElement>('edit-content');
+    content.value = initial;
+    dialog.querySelectorAll<HTMLButtonElement | HTMLTextAreaElement>('button, textarea').forEach((control) => { control.disabled = false; });
+    dialog.returnValue = 'cancel';
+    dialog.showModal();
+    content.focus();
+    return new Promise((resolve) => dialog.addEventListener('close', () => resolve(dialog.returnValue === 'save' ? content.value : null), { once: true }));
   }
 
   function output(text: string, kind = '') {
@@ -226,7 +242,7 @@ export function mountApp(root: HTMLElement): void {
     finally { lock(false); render(); }
   }
 
-  catalog.entries.forEach((item) => { const option = el('option', '', `${item.lesson.title}${item.support.some((step) => !step.supported) ? ' · 미리보기' : ''}`); option.value = item.lesson.id; select.append(option); });
+  catalog.entries.forEach((item) => { const option = el('option', '', `${item.lesson.difficulty} · ${item.lesson.title}${item.support.some((step) => !step.supported) ? ' · 미리보기' : ''}`); option.value = item.lesson.id; select.append(option); });
   select.onchange = () => { const selected = catalog.entries.find((item) => item.lesson.id === select.value); if (selected) void openLesson(selected); };
   get('restart-button').onclick = () => { if (entry) void openLesson(entry); };
   get('check-button').onclick = () => {
@@ -245,12 +261,21 @@ export function mountApp(root: HTMLElement): void {
     if (!command || busy || !runner || runner.complete || runner.unsupported) return;
     commandInput.value = ''; history.push(command); historyIndex = history.length;
     output(`❯ ${command}`, 'terminal-command');
-    void action(async () => { const result = await runner!.execute(command); if (result) output(result, result.startsWith('오류:') ? 'terminal-error' : ''); }).then(() => commandInput.focus());
+    void action(async () => { const result = await runner!.execute(command, edit); if (result) output(result, result.startsWith('오류:') ? 'terminal-error' : ''); }).then(() => commandInput.focus());
   };
   commandInput.oninput = () => runner?.touch(); messageInput.oninput = () => runner?.touch();
   commandInput.onkeydown = (event) => {
     if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
     event.preventDefault(); historyIndex = Math.max(0, Math.min(history.length, historyIndex + (event.key === 'ArrowUp' ? -1 : 1))); commandInput.value = history[historyIndex] ?? '';
+  };
+  get('file-form').onsubmit = (event) => {
+    event.preventDefault();
+    void action(async () => {
+      const path = get<HTMLInputElement>('file-path').value.trim();
+      const initial = runner!.state.files.includes(path) ? await runner!.repo.readFile(path) : '';
+      const content = await edit(path, initial);
+      if (content !== null) { await runner!.repo.writeFile(path, content); await runner!.refresh(); }
+    });
   };
   get('commit-form').onsubmit = (event) => {
     event.preventDefault();

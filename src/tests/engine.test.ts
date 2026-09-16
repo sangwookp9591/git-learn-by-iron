@@ -150,7 +150,7 @@ test('unsupported commands/options cannot mutate state; unsafe paths are rejecte
   const repo = await seeded();
   await repo.writeFile('a.txt', 'keep my changes');
   const before = await readState(repo);
-  for (const cmd of ['git push', 'git clone https://example.invalid/repo', 'git reset --hard', 'git commit -am shortcut', 'git add -f .', 'git switch -C main', 'git log --oneline=false', 'git cherry-pick -m', 'git toString']) {
+  for (const cmd of ['git push --mirror', 'git clone https://example.invalid/repo', 'git reset --keep', 'git commit -am shortcut', 'git add -f .', 'git switch -C main', 'git log --oneline=false', 'git cherry-pick -m', 'git toString']) {
     assert.equal(await run(repo, cmd), laterLesson);
     assert.deepEqual(await readState(repo), before);
   }

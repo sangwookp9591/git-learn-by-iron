@@ -58,6 +58,10 @@ export function parse(line: string): ParsedCommand {
       if (args[i + 1] === undefined) throw new Error(`'${name}' 옵션에 값이 필요합니다.`);
       value = args[++i];
     }
+    if (subcommand === 'commit' && ['-m', '--message'].includes(name) && typeof options[name] === 'string') {
+      options[name] += `\n\n${value}`;
+      continue;
+    }
     if (Object.hasOwn(options, name)) throw new Error(`'${name}' 옵션은 한 번만 입력하세요.`);
     options[name] = value;
   }

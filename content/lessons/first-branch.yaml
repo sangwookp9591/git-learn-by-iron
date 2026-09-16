@@ -19,10 +19,10 @@ steps:
       어제 클론만 하고 아무것도 안 했으니 main에 있을 겁니다.
       main이 맞는지 눈으로 확인하고 다음으로 넘어가세요.
     assert:
-      - head.on: main
+      - branch.current: main
       - worktree.clean: true
     hints:
-      - when: head.on != "main"
+      - when: branch.current != "main"
         say: |
           지금 main이 아닌 브랜치에 있습니다. 브랜치를 파기 전에
           main으로 돌아가야 합니다.
@@ -43,7 +43,7 @@ steps:
       어제 이후 들어온 커밋 두 개가 로컬에 내려옵니다.
       받아온 뒤 `git log --oneline -5`로 새 커밋이 보이는지 확인하세요.
     assert:
-      - head.on: main
+      - branch.current: main
       - head.behind: 0
       - branch.tracks: origin/main
     hints:
@@ -56,7 +56,7 @@ steps:
 
           "Already up to date."가 나오면 이미 받아온 것이니 그대로
           다음 단계로 가세요.
-      - when: head.on != "main"
+      - when: branch.current != "main"
         say: |
           pull은 지금 있는 브랜치를 갱신합니다. main에 있지 않으면
           엉뚱한 브랜치가 갱신됩니다. main으로 먼저 이동하세요.
@@ -73,7 +73,7 @@ steps:
       이동까지 한 번에 합니다.
     assert:
       - branch.exists: feature/PAY-231-card-expiry
-      - head.on: feature/PAY-231-card-expiry
+      - branch.current: feature/PAY-231-card-expiry
       - branch.base: main
       - head.detached: false
     hints:
@@ -84,7 +84,7 @@ steps:
           `feature/PAY-231-card-expiry`로 쓰세요.
 
               git switch -c feature/PAY-231-card-expiry
-      - when: branch.exists("feature/PAY-231-card-expiry") && head.on == "main"
+      - when: branch.exists("feature/PAY-231-card-expiry") && branch.current == "main"
         say: |
           브랜치는 만들어졌는데 아직 main에 서 있습니다. `-c` 없이
           `git branch`로 만들면 이동은 안 됩니다. 만든 브랜치로
@@ -117,7 +117,7 @@ steps:
       `feature/PAY-231-card-expiry`가 나오면 준비가 끝난 겁니다.
       이제 코드를 고쳐도 main은 안전합니다.
     assert:
-      - head.on: feature/PAY-231-card-expiry
+      - branch.current: feature/PAY-231-card-expiry
       - worktree.clean: true
       - branch.exists: main
     hints:

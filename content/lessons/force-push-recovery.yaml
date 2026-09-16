@@ -25,7 +25,7 @@ steps:
       있는 표시를 남겨두세요.
     assert:
       - branch.exists: backup/before-recovery
-      - head.on: hotfix/PAY-247-expiry-zero-based
+      - branch.current: hotfix/PAY-247-expiry-zero-based
       - worktree.clean: true
     hints:
       - when: requested
@@ -65,7 +65,7 @@ steps:
       - reflog.contains: 'refactor(payment): 만료월 판별을 별도 함수로 추출'
       - reflog.contains: 'fix(payment): 게이트웨이 코드 매핑 보정'
       - reflog.contains: 'test(payment): 0-based 만료월 경계 테스트 추가'
-      - head.on: hotfix/PAY-247-expiry-zero-based
+      - branch.current: hotfix/PAY-247-expiry-zero-based
     hints:
       - when: requested
         say: |
@@ -95,7 +95,7 @@ steps:
       - commit.subject_on_branch: 'perf(payment): 결제 내역 조회 인덱스 추가'
       - worktree.contains: src/payment/__tests__/expiry-boundary.test.ts
       - head.detached: false
-      - head.on: hotfix/PAY-247-expiry-zero-based
+      - branch.current: hotfix/PAY-247-expiry-zero-based
     hints:
       - when: 'commit.subject_missing("perf(payment): 결제 내역 조회 인덱스 추가")'
         say: |
@@ -152,7 +152,7 @@ steps:
       - remote.branch_head: hotfix/PAY-247-expiry-zero-based
       - head.ahead: 0
       - branch.absent: backup/before-recovery
-      - head.on: hotfix/PAY-247-expiry-zero-based
+      - branch.current: hotfix/PAY-247-expiry-zero-based
     hints:
       - when: command_used("push --force")
         say: |

@@ -1,4 +1,5 @@
 import { parse as parseYaml } from 'yaml';
+import { supportsCommand } from '../terminal/run.ts';
 import { supportedAssertions } from './assert.ts';
 import type { Lesson, Setup } from './schema.ts';
 
@@ -11,10 +12,18 @@ function texts(value: unknown): value is Record<string, string> {
 
 export function parseSetup(raw: string | unknown): Setup {
   const data: unknown = typeof raw === 'string' ? parseYaml(raw) : raw;
-  if (!object(data) || !Array.isArray(data.commits) || !texts(data.worktree)
+  const commit = (value: unknown) => object(value) && typeof value.message === 'string' && !!value.message.trim() && texts(value.files);
+  if (!object(data) || 'worktree' in data || !Array.isArray(data.commits) || !data.commits.every(commit)
     || (data.branch !== undefined && typeof data.branch !== 'string')
-    || data.commits.some((commit) => !object(commit) || typeof commit.message !== 'string' || !texts(commit.files))) {
-    throw new Error('초기 저장소의 commits, worktree 형식을 확인하세요.');
+    || !object(data.working_tree) || !texts(data.working_tree.modified) || !texts(data.working_tree.untracked)
+    || !Array.isArray(data.working_tree.staged) || !data.working_tree.staged.every((path) => typeof path === 'string')
+    || (data.remote !== undefined && (!object(data.remote) || !object(data.remote.branches)
+      || !Object.values(data.remote.branches).every((branch) => object(branch)
+        && (branch.tracks === undefined || typeof branch.tracks === 'boolean')
+        && (branch.at === undefined || typeof branch.at === 'string')
+        && (branch.ahead === undefined || Array.isArray(branch.ahead) && branch.ahead.every(commit)))))
+    || (data.dangling !== undefined && (!Array.isArray(data.dangling) || !data.dangling.every((value) => commit(value) && object(value) && typeof value.reason === 'string')))) {
+    throw new Error('초기 저장소의 commits, working_tree, remote, dangling 형식을 확인하세요.');
   }
   return data as unknown as Setup;
 }
@@ -45,13 +54,9 @@ export function inspectLesson(lesson: Lesson, setupAvailable: boolean, setupIssu
     if (!setupAvailable) reasons.push(setupIssue ?? `초기 저장소 fixture 없음: ${String(lesson.setup)}`);
     const unknown = step.assert.flatMap((assertion) => Object.keys(assertion)).filter((key) => !supportedAssertions.has(key));
     if (unknown.length) reasons.push(`미지원 상태 조건: ${[...new Set(unknown)].join(', ')}`);
-    const commands = [...step.say.matchAll(/^\s*git\s+([^\n]+)/gm)].map((match) => match[1].trim());
-    for (const command of commands) {
-      if (/^(pull|push|reflog|rebase|cherry-pick|show|rm|check-ignore)\b/.test(command)
-        || /^commit\s*$/.test(command) || /^commit\s+--amend/.test(command)
-        || /^diff\s+--(staged|cached)/.test(command) || /^add\s+-p/.test(command)
-        || /^branch\s+--show-current/.test(command) || /^reset\s+--(soft|mixed|hard)/.test(command)
-        || /^log\s+.*\s-\d/.test(command)) reasons.push(`미지원 예제: git ${command}`);
+    for (const [line] of step.say.matchAll(/^\s*git\s+[^\n]+/gm)) {
+      const command = line.trim().replace(/\\$/, '').trim();
+      if (!supportsCommand(command)) reasons.push(`미지원 예제: ${command}`);
     }
     return { supported: reasons.length === 0, reasons };
   });

@@ -92,8 +92,8 @@ progress::-moz-progress-bar { background: var(--teal); }
 .file-action { background: var(--paper); border: 1px solid var(--border); border-radius: 4px; width: 28px; height: 28px; flex-shrink: 0; font: 18px var(--mono); display: grid; place-items: center; }
 .file-action:hover:not(:disabled) { color: var(--accent-ink); border-color: var(--accent-ink); }
 .commit-form { border-top: 1px solid var(--border); display: flex; gap: 8px; padding: 15px; flex-wrap: wrap; }
-.commit-form input { min-width: 0; width: 100%; border: 1px solid var(--border); background: var(--paper); padding: 11px 12px; border-radius: 5px; font-size: 11px; color: var(--text); }
-.commit-form input::placeholder { color: var(--muted); }
+.commit-form textarea { min-width: 0; width: 100%; border: 1px solid var(--border); background: var(--paper); padding: 11px 12px; border-radius: 5px; font-size: 11px; color: var(--text); }
+.commit-form textarea::placeholder { color: var(--muted); }
 .commit-button { width: 100%; background: var(--teal); color: white; border-radius: 5px; padding: 10px 14px; font-size: 12px; }
 .commit-button:disabled { background: var(--paper); color: var(--muted); opacity: 1; border: 1px solid var(--border); }
 .muted { font: 9px var(--mono); color: var(--muted); margin-left: auto; white-space: nowrap; }
@@ -159,3 +159,9 @@ dialog pre { font: 12px/1.9 var(--mono); overflow: auto; max-height: 65vh; }
 @media (max-width: 760px) { .topbar { height: auto; min-height: 76px; padding: 16px 20px; gap: 16px; flex-wrap: wrap; } .brand { font-size: 21px; } .brand-mark { width: 33px; height: 36px; } .header-tools { gap: 7px; max-width: 65%; } .header-tools select { max-width: 100%; width: 195px; font-size: 10px; padding-right: 12px; } .icon-button { flex-shrink: 0; } .workspace { grid-template-columns: 1fr; padding: 24px 20px; gap: 25px; } .lesson-pane { padding: 0; } h1 { font-size: 25px; } .scenario { margin-bottom: 22px; } .lesson-actions { margin-top: 20px; } .lesson-footer { margin-top: 20px; } .workbench { gap: 15px; } .panel { min-height: 0; } .source-content { padding-bottom: 22px; } .graph-panel { min-height: 175px; } .page-footer { padding: 0 20px 20px; flex-wrap: wrap; gap: 8px; } .page-footer span:last-child { width: 100%; margin-left: 0; } .terminal-output { min-height: 140px; } .app-status { padding: 12px 20px 0; } }
 @media (max-width: 420px) { .header-tools { max-width: 100%; } .header-tools select { width: 167px; } .brand small { display: none; } .brand { gap: 7px; font-size: 18px; } .topbar { gap: 10px; padding-inline: 16px; } .header-tools .icon-button { width: 30px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+
+#file-form { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+#file-form input { flex: 1; min-width: 100px; }
+#edit-dialog form { display: grid; gap: 12px; }
+#edit-content { width: 100%; max-height: 60vh; background: var(--paper); color: var(--text); font: 12px/1.7 var(--mono); }
+#edit-dialog form > div { display: flex; justify-content: flex-end; gap: 12px; }

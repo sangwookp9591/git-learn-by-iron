@@ -23,10 +23,10 @@ steps:
       다시 골라 담을 수 있습니다.
     assert:
       - commit.count_on_branch: 1
-      - worktree.has_changes: src/payment/PaymentValidator.ts
-      - worktree.has_changes: src/payment/PaymentController.ts
+      - worktree.dirty: src/payment/PaymentValidator.ts
+      - worktree.dirty: src/payment/PaymentController.ts
       - index.empty: true
-      - head.on: feature/PAY-231-card-expiry
+      - branch.current: feature/PAY-231-card-expiry
     hints:
       - when: worktree.clean == true && commit.count_on_branch == 1
         say: |
@@ -82,7 +82,7 @@ steps:
       `Refs: PAY-231`입니다.
     assert:
       - commit.count_on_branch: 2
-      - commit.subject_matches: '^feat\(payment\): '
+      - head.message.matches: '^feat\(payment\): '
       - commit.touches: src/payment/PaymentValidator.ts
       - commit.not_touches: src/payment/PaymentController.ts
       - commit.trailer: 'Refs: PAY-231'
@@ -124,13 +124,13 @@ steps:
       다시 판단하세요.
     assert:
       - commit.count_on_branch: 3
-      - commit.subject_matches: '^fix\(payment\): '
+      - head.message.matches: '^fix\(payment\): '
       - commit.touches: src/payment/PaymentController.ts
       - commit.trailer: 'Refs: PAY-231'
       - worktree.clean: true
       - index.empty: true
     hints:
-      - when: commit.subject_matches("^feat")
+      - when: head.message.matches("^feat")
         say: |
           타입을 다시 보세요. 검증 로직 자체는 앞 커밋에서 새로
           생긴 기능이지만, 이 커밋은 만료된 카드에 500을 뱉던 응답을
