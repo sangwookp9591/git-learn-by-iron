@@ -1,0 +1,311 @@
+id: dalro-payments-force-push-incident
+description: 월요일 아침. 금요일 밤 JAY 님의 리베이스와 강제 푸시로 hotfix 브랜치에서 내 커밋 세 개가 떨어져 나갔다. JAY 님이 그 위에 올린 perf 커밋만 브랜치에 남아 있고, 유실된 세 개는 reflog로만 닿는다.
+branch: hotfix/PAY-247-expiry-zero-based
+
+# 이 fixture는 사고가 이미 일어난 뒤의 상태다.
+# commits  = 강제 푸시 후 브랜치에 남아 있는 히스토리 (JAY 님 perf 커밋이 tip)
+# dangling = 브랜치에서 떨어져 나가 reflog로만 닿는, 되살려야 할 커밋 세 개
+# origin 도 이미 덮어써졌으므로 remote 는 head 와 같은 지점이다.
+
+commits:
+  - message: |
+      feat(payment): 결제 요청 스키마와 게이트웨이 클라이언트 추가
+
+      Refs: PAY-118
+    files:
+      src/payment/PaymentRequest.ts: |
+        export type Currency = 'KRW' | 'USD' | 'JPY'
+
+        export interface Card {
+          bin: string
+          last4: string
+          expiryMonth: number
+          expiryYear: number
+          issuerCode: string
+        }
+
+        export interface PaymentRequest {
+          orderId: string
+          amount: number
+          currency: Currency
+          card: Card
+          idempotencyKey: string
+        }
+
+        export interface ValidationResult {
+          ok: boolean
+          code?: string
+          message?: string
+        }
+      src/payment/gateway/GatewayClient.ts: |
+        import type { PaymentRequest } from '../PaymentRequest'
+
+        export interface GatewayResponse {
+          approved: boolean
+          approvalNumber?: string
+          declineCode?: string
+        }
+
+        export class GatewayClient {
+          constructor(
+            private readonly baseUrl: string,
+            private readonly timeoutMs: number,
+          ) {}
+
+          async authorize(req: PaymentRequest): Promise<GatewayResponse> {
+            const res = await fetch(`${this.baseUrl}/authorizations`, {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'idempotency-key': req.idempotencyKey,
+              },
+              body: JSON.stringify(req),
+              signal: AbortSignal.timeout(this.timeoutMs),
+            })
+            return (await res.json()) as GatewayResponse
+          }
+        }
+      config/payment.yml: |
+        gateway:
+          baseUrl: https://gw.dalro.example/v2
+          timeoutMs: 3000
+          retry:
+            maxAttempts: 3
+            backoffMs: 200
+
+        limits:
+          minAmount: 100
+          maxAmount: 10000000
+      .gitignore: |
+        node_modules/
+        dist/
+        *.log
+        .DS_Store
+        .env.local
+
+  - message: |
+      feat(payment): 카드 만료일 검증 추가
+
+      Refs: PAY-231
+    files:
+      src/payment/PaymentValidator.ts: |
+        import type { Card, PaymentRequest, ValidationResult } from './PaymentRequest'
+
+        const MIN_AMOUNT = 100
+        const MAX_AMOUNT = 10_000_000
+
+        export class PaymentValidator {
+          validate(req: PaymentRequest, now: Date = new Date()): ValidationResult {
+            if (req.amount < MIN_AMOUNT || req.amount > MAX_AMOUNT) {
+              return { ok: false, code: 'AMOUNT_OUT_OF_RANGE', message: '결제 금액이 허용 범위를 벗어났습니다' }
+            }
+            if (this.isExpired(req.card, now)) {
+              return { ok: false, code: 'CARD_EXPIRED', message: '만료된 카드입니다' }
+            }
+            return { ok: true }
+          }
+
+          private isExpired(card: Card, now: Date): boolean {
+            const lastMoment = new Date(card.expiryYear, card.expiryMonth, 0, 23, 59, 59)
+            return now > lastMoment
+          }
+        }
+      src/payment/PaymentController.ts: |
+        import { PaymentValidator } from './PaymentValidator'
+        import { GatewayClient } from './gateway/GatewayClient'
+        import type { PaymentRequest } from './PaymentRequest'
+
+        export interface HttpResponse {
+          status: number
+          body: unknown
+        }
+
+        export class PaymentController {
+          constructor(
+            private readonly validator: PaymentValidator,
+            private readonly gateway: GatewayClient,
+          ) {}
+
+          async authorize(req: PaymentRequest): Promise<HttpResponse> {
+            const validation = this.validator.validate(req)
+            if (!validation.ok) {
+              return { status: 400, body: { code: validation.code, message: validation.message } }
+            }
+
+            const result = await this.gateway.authorize(req)
+            if (!result.approved) {
+              return { status: 402, body: { code: result.declineCode } }
+            }
+            return { status: 200, body: { approvalNumber: result.approvalNumber } }
+          }
+        }
+
+  - message: |
+      perf(payment): 결제 내역 조회 인덱스 추가
+
+      주문번호 단건 조회가 전체 스캔으로 돌고 있었습니다. (merchant_id,
+      created_at) 복합 인덱스를 추가해 p95 1.8s -> 210ms로 떨어졌습니다.
+
+      Refs: PAY-219
+    files:
+      src/payment/PaymentHistoryRepository.ts: |
+        import type { Pool } from 'pg'
+
+        export interface PaymentHistoryRow {
+          orderId: string
+          amount: number
+          approvedAt: string
+        }
+
+        export class PaymentHistoryRepository {
+          constructor(private readonly pool: Pool) {}
+
+          async findByMerchant(merchantId: string, from: Date, to: Date): Promise<PaymentHistoryRow[]> {
+            const { rows } = await this.pool.query(
+              `SELECT order_id AS "orderId", amount, approved_at AS "approvedAt"
+                 FROM payment_history
+                WHERE merchant_id = $1
+                  AND created_at BETWEEN $2 AND $3
+                ORDER BY created_at DESC
+                LIMIT 200`,
+              [merchantId, from, to],
+            )
+            return rows
+          }
+        }
+      db/migrations/20260913_add_payment_history_index.sql: |
+        -- PAY-219: 가맹점별 기간 조회가 전체 스캔으로 돌고 있었다.
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_payment_history_merchant_created
+            ON payment_history (merchant_id, created_at DESC);
+
+        ANALYZE payment_history;
+
+dangling:
+  - message: |
+      refactor(payment): 만료월 판별을 별도 함수로 추출
+
+      카드사마다 만료월 표기가 달라서 보정 로직이 붙을 자리가 필요합니다.
+      동작은 그대로입니다.
+
+      Refs: PAY-247
+    reason: 리베이스 전 hotfix/PAY-247-expiry-zero-based의 커밋. 강제 푸시로 브랜치에서 떨어져 나감
+    files:
+      src/payment/ExpiryMonth.ts: |
+        import type { Card } from './PaymentRequest'
+
+        /** 카드사가 보내온 만료월을 1-12 범위로 해석한 결과. */
+        export interface NormalizedExpiry {
+          month: number
+          year: number
+        }
+
+        export function normalizeExpiry(card: Card): NormalizedExpiry {
+          return { month: card.expiryMonth, year: card.expiryYear }
+        }
+
+        export function isExpired(card: Card, now: Date): boolean {
+          const { month, year } = normalizeExpiry(card)
+          const lastMoment = new Date(year, month, 0, 23, 59, 59)
+          return now > lastMoment
+        }
+      src/payment/PaymentValidator.ts: |
+        import type { PaymentRequest, ValidationResult } from './PaymentRequest'
+        import { isExpired } from './ExpiryMonth'
+
+        const MIN_AMOUNT = 100
+        const MAX_AMOUNT = 10_000_000
+
+        export class PaymentValidator {
+          validate(req: PaymentRequest, now: Date = new Date()): ValidationResult {
+            if (req.amount < MIN_AMOUNT || req.amount > MAX_AMOUNT) {
+              return { ok: false, code: 'AMOUNT_OUT_OF_RANGE', message: '결제 금액이 허용 범위를 벗어났습니다' }
+            }
+            if (isExpired(req.card, now)) {
+              return { ok: false, code: 'CARD_EXPIRED', message: '만료된 카드입니다' }
+            }
+            return { ok: true }
+          }
+        }
+
+  - message: |
+      fix(payment): 게이트웨이 코드 매핑 보정
+
+      일부 해외 카드사가 만료월을 0-11 범위로 보내와 12월 카드가 만료로
+      처리되고 있었습니다. 게이트웨이 코드로 0-based 여부를 판별해
+      보정합니다.
+
+      Refs: PAY-247
+    reason: 리베이스 전 hotfix/PAY-247-expiry-zero-based의 커밋. 강제 푸시로 브랜치에서 떨어져 나감
+    files:
+      src/payment/ExpiryMonth.ts: |
+        import type { Card } from './PaymentRequest'
+
+        /** 만료월을 0-11로 보내오는 게이트웨이 코드. 카드사 연동 문서 기준. */
+        const ZERO_BASED_GATEWAYS = new Set(['GW_EU_01', 'GW_EU_04', 'GW_SEA_02'])
+
+        export interface NormalizedExpiry {
+          month: number
+          year: number
+        }
+
+        export function normalizeExpiry(card: Card): NormalizedExpiry {
+          const zeroBased = ZERO_BASED_GATEWAYS.has(card.issuerCode) && card.expiryMonth <= 11
+          return {
+            month: zeroBased ? card.expiryMonth + 1 : card.expiryMonth,
+            year: card.expiryYear,
+          }
+        }
+
+        export function isExpired(card: Card, now: Date): boolean {
+          const { month, year } = normalizeExpiry(card)
+          const lastMoment = new Date(year, month, 0, 23, 59, 59)
+          return now > lastMoment
+        }
+
+  - message: |
+      test(payment): 0-based 만료월 경계 테스트 추가
+
+      Refs: PAY-247
+    reason: 리베이스 전 hotfix/PAY-247-expiry-zero-based의 마지막 커밋. 강제 푸시로 브랜치에서 떨어져 나감
+    files:
+      src/payment/__tests__/expiry-boundary.test.ts: |
+        import { test } from 'node:test'
+        import assert from 'node:assert/strict'
+        import { normalizeExpiry, isExpired } from '../ExpiryMonth'
+        import type { Card } from '../PaymentRequest'
+
+        const card = (over: Partial<Card> = {}): Card => ({
+          bin: '433012',
+          last4: '9921',
+          expiryMonth: 11,
+          expiryYear: 2026,
+          issuerCode: 'GW_EU_01',
+          ...over,
+        })
+
+        test('0-based 게이트웨이의 11은 12월로 읽는다', () => {
+          assert.equal(normalizeExpiry(card()).month, 12)
+        })
+
+        test('1-based 게이트웨이의 11은 그대로 11월이다', () => {
+          assert.equal(normalizeExpiry(card({ issuerCode: 'KB' })).month, 11)
+        })
+
+        test('보정된 12월 카드는 12월 말일까지 살아 있다', () => {
+          assert.equal(isExpired(card(), new Date(2026, 11, 31, 23, 0, 0)), false)
+        })
+
+        test('보정된 12월 카드도 해가 바뀌면 만료다', () => {
+          assert.equal(isExpired(card(), new Date(2027, 0, 1, 0, 0, 1)), true)
+        })
+
+remote:
+  branches:
+    hotfix/PAY-247-expiry-zero-based:
+      tracks: true
+      at: head
+
+working_tree:
+  modified: {}
+  untracked: {}
+  staged: []

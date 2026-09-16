@@ -1,0 +1,231 @@
+id: dalro-payments-day2
+description: 입사 2일차 아침. main에 서 있고 워킹 트리는 깨끗한데, 어제 클론한 뒤 origin/main에 커밋 두 개가 더 들어와 있다.
+branch: main
+
+commits:
+  - message: |
+      feat(payment): 결제 요청 스키마와 게이트웨이 클라이언트 추가
+
+      Refs: PAY-118
+    files:
+      src/payment/PaymentRequest.ts: |
+        export type Currency = 'KRW' | 'USD' | 'JPY'
+
+        export interface Card {
+          bin: string
+          last4: string
+          expiryMonth: number
+          expiryYear: number
+          issuerCode: string
+        }
+
+        export interface PaymentRequest {
+          orderId: string
+          amount: number
+          currency: Currency
+          card: Card
+          idempotencyKey: string
+        }
+
+        export interface ValidationResult {
+          ok: boolean
+          code?: string
+          message?: string
+        }
+      src/payment/gateway/GatewayClient.ts: |
+        import type { PaymentRequest } from '../PaymentRequest'
+
+        export interface GatewayResponse {
+          approved: boolean
+          approvalNumber?: string
+          declineCode?: string
+        }
+
+        export class GatewayClient {
+          constructor(
+            private readonly baseUrl: string,
+            private readonly timeoutMs: number,
+          ) {}
+
+          async authorize(req: PaymentRequest): Promise<GatewayResponse> {
+            const res = await fetch(`${this.baseUrl}/authorizations`, {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'idempotency-key': req.idempotencyKey,
+              },
+              body: JSON.stringify(req),
+              signal: AbortSignal.timeout(this.timeoutMs),
+            })
+            return (await res.json()) as GatewayResponse
+          }
+        }
+      config/payment.yml: |
+        gateway:
+          baseUrl: https://gw.dalro.example/v2
+          timeoutMs: 3000
+          retry:
+            maxAttempts: 3
+            backoffMs: 200
+
+        limits:
+          minAmount: 100
+          maxAmount: 10000000
+      .gitignore: |
+        node_modules/
+        dist/
+        *.log
+        .DS_Store
+
+  - message: |
+      feat(payment): 결제 요청 검증기 골격 추가
+
+      금액 범위와 필수 필드만 먼저 막습니다. 카드 만료일 검증은
+      게이트웨이 응답 코드 정리가 끝난 뒤에 붙입니다.
+
+      Refs: PAY-140
+    files:
+      src/payment/PaymentValidator.ts: |
+        import type { PaymentRequest, ValidationResult } from './PaymentRequest'
+
+        const MIN_AMOUNT = 100
+        const MAX_AMOUNT = 10_000_000
+
+        export class PaymentValidator {
+          validate(req: PaymentRequest): ValidationResult {
+            if (!req.orderId) {
+              return { ok: false, code: 'ORDER_ID_REQUIRED', message: '주문 번호가 없습니다' }
+            }
+            if (req.amount < MIN_AMOUNT || req.amount > MAX_AMOUNT) {
+              return { ok: false, code: 'AMOUNT_OUT_OF_RANGE', message: '결제 금액이 허용 범위를 벗어났습니다' }
+            }
+            if (!req.idempotencyKey) {
+              return { ok: false, code: 'IDEMPOTENCY_KEY_REQUIRED', message: '멱등성 키가 없습니다' }
+            }
+            return { ok: true }
+          }
+        }
+      src/payment/__tests__/validator.test.ts: |
+        import { test } from 'node:test'
+        import assert from 'node:assert/strict'
+        import { PaymentValidator } from '../PaymentValidator'
+        import type { PaymentRequest } from '../PaymentRequest'
+
+        const request = (over: Partial<PaymentRequest> = {}): PaymentRequest => ({
+          orderId: 'ORD-20260914-0001',
+          amount: 12_900,
+          currency: 'KRW',
+          card: { bin: '433012', last4: '9921', expiryMonth: 7, expiryYear: 2027, issuerCode: 'KB' },
+          idempotencyKey: 'a1f2-c390',
+          ...over,
+        })
+
+        test('금액이 하한보다 작으면 거절한다', () => {
+          const result = new PaymentValidator().validate(request({ amount: 10 }))
+          assert.equal(result.code, 'AMOUNT_OUT_OF_RANGE')
+        })
+
+        test('필수 필드가 채워지면 통과한다', () => {
+          assert.equal(new PaymentValidator().validate(request()).ok, true)
+        })
+
+  - message: |
+      feat(payment): 결제 승인 컨트롤러 추가
+
+      Refs: PAY-140
+    files:
+      src/payment/PaymentController.ts: |
+        import { PaymentValidator } from './PaymentValidator'
+        import { GatewayClient } from './gateway/GatewayClient'
+        import type { PaymentRequest } from './PaymentRequest'
+
+        export interface HttpResponse {
+          status: number
+          body: unknown
+        }
+
+        export class PaymentController {
+          constructor(
+            private readonly validator: PaymentValidator,
+            private readonly gateway: GatewayClient,
+          ) {}
+
+          async authorize(req: PaymentRequest): Promise<HttpResponse> {
+            const validation = this.validator.validate(req)
+            if (!validation.ok) {
+              return { status: 422, body: { code: validation.code, message: validation.message } }
+            }
+
+            const result = await this.gateway.authorize(req)
+            if (!result.approved) {
+              return { status: 402, body: { code: result.declineCode } }
+            }
+            return { status: 200, body: { approvalNumber: result.approvalNumber } }
+          }
+        }
+
+remote:
+  branches:
+    main:
+      tracks: true
+      ahead:
+        - message: |
+            refactor(settlement): 정산 금액 계산을 도메인 서비스로 분리
+
+            컨트롤러에 흩어져 있던 수수료 계산을 SettlementCalculator로
+            모았습니다. 동작은 그대로입니다.
+
+            Refs: PAY-201
+          files:
+            src/settlement/SettlementCalculator.ts: |
+              export interface SettlementInput {
+                amount: number
+                feeRate: number
+                issuerCode: string
+              }
+
+              const ISSUER_SURCHARGE: Record<string, number> = {
+                KB: 0,
+                SHINHAN: 0,
+                AMEX: 0.004,
+              }
+
+              export class SettlementCalculator {
+                calculate({ amount, feeRate, issuerCode }: SettlementInput): number {
+                  const surcharge = ISSUER_SURCHARGE[issuerCode] ?? 0
+                  const fee = Math.round(amount * (feeRate + surcharge))
+                  return amount - fee
+                }
+              }
+
+        - message: |
+            fix(webhook): 재시도 시 중복 승인되던 문제 수정
+
+            게이트웨이가 같은 승인 웹훅을 두 번 보내면 결제가 두 번
+            확정되고 있었습니다. 승인 번호로 멱등 처리합니다.
+
+            Refs: PAY-208
+          files:
+            src/webhook/WebhookHandler.ts: |
+              export interface ApprovalEvent {
+                approvalNumber: string
+                orderId: string
+                amount: number
+              }
+
+              export class WebhookHandler {
+                private readonly handled = new Set<string>()
+
+                handleApproval(event: ApprovalEvent): 'applied' | 'duplicated' {
+                  if (this.handled.has(event.approvalNumber)) {
+                    return 'duplicated'
+                  }
+                  this.handled.add(event.approvalNumber)
+                  return 'applied'
+                }
+              }
+
+working_tree:
+  modified: {}
+  untracked: {}
+  staged: []
