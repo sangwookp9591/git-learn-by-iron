@@ -37,34 +37,34 @@ export function mountApp(root: HTMLElement): void {
     <header class="topbar">
       <a class="brand" href="#" aria-label="Git Learn 홈"><span class="brand-mark" aria-hidden="true">⑂</span><span>git<span class="brand-light">learn</span><small>BY IRON</small></span></a>
       <div class="header-caption">읽는 것에서, 해보는 것으로.</div>
-      <div class="header-tools"><label class="sr-only" for="lesson-select">레슨 선택</label><select id="lesson-select"></select><button id="theme-toggle" class="icon-button" aria-label="다크 모드로 전환">◐</button></div>
+      <div class="header-tools"><label class="sr-only" for="lesson-select">레슨 선택</label><select id="lesson-select" class="input"></select><button id="theme-toggle" class="button button--secondary button--icon" aria-label="다크 모드로 전환">◐</button></div>
     </header>
     <div id="app-status" class="app-status" role="status" aria-live="polite">실습 저장소를 준비하고 있어요…</div>
     <main class="workspace">
-      <aside class="lesson-pane" aria-label="레슨 지시">
-        <div class="lesson-eyebrow"><span id="difficulty" class="pill"></span><span>HANDS-ON LAB</span></div>
+      <aside class="panel lesson-pane" aria-label="레슨 지시">
+        <div class="lesson-eyebrow"><span id="difficulty" class="badge badge--accent"></span><span>HANDS-ON LAB</span></div>
         <h1 id="lesson-title"></h1><p id="scenario" class="scenario"></p>
         <div class="progress-label"><span id="progress-label"></span><span id="progress-percent"></span></div>
-        <progress id="lesson-progress" value="0" max="3" aria-label="레슨 진행률"></progress>
+        <progress class="progress" id="lesson-progress" value="0" max="3" aria-label="레슨 진행률"></progress>
         <div id="lesson-intro" class="intro"></div>
         <section id="lesson-instructions" tabindex="-1"><div id="step-heading" class="step-heading"></div><div id="instructions" class="instruction-prose"></div></section>
         <div id="assessment" class="assessment" role="status" aria-live="polite"></div>
         <div id="hints" class="hints" aria-live="polite"></div>
-        <div class="lesson-actions"><button id="hint-button" class="quiet-button">힌트 보기 <span aria-hidden="true">↗</span></button><button id="check-button" class="primary-button">상태 확인 <span aria-hidden="true">→</span></button></div>
-        <div class="lesson-footer"><span>실수해도 괜찮아요. 다시 해보면 됩니다.</span><button id="restart-button" class="text-button">처음부터</button></div>
+        <div class="lesson-actions"><button id="hint-button" class="button button--quiet">힌트 보기 <span aria-hidden="true">↗</span></button><button id="check-button" class="button button--primary">상태 확인 <span aria-hidden="true">→</span></button></div>
+        <div class="lesson-footer"><span>실수해도 괜찮아요. 다시 해보면 됩니다.</span><button id="restart-button" class="button button--quiet text-button">처음부터</button></div>
       </aside>
       <div class="workbench">
-        <section class="panel source-panel" aria-labelledby="source-title"><header class="panel-header"><h2 id="source-title"><span aria-hidden="true">⑂</span> 소스 컨트롤</h2><span id="source-branch" class="branch-label"></span></header>
-          <div class="source-content"><p class="panel-caption">이번 커밋에 담을 변경을 골라 보세요.</p><form id="file-form"><label for="file-path">파일 편집</label><input id="file-path" value=".gitignore" aria-label="편집할 파일 경로"><button type="submit">열기</button></form><div id="staged-list"></div><div id="worktree-list"></div></div>
-          <form id="commit-form" class="commit-form"><label class="sr-only" for="commit-message">커밋 메시지</label><textarea id="commit-message" placeholder="커밋 메시지를 입력하세요" rows="3" maxlength="4000"></textarea><button id="commit-button" class="commit-button" type="submit">✓ 커밋하기</button></form>
+        <section class="panel source-panel" aria-labelledby="source-title"><header class="panel__header"><h2 id="source-title" class="panel__title"><span aria-hidden="true">⑂</span> 소스 컨트롤</h2><span id="source-branch" class="chip branch-label"></span></header>
+          <div class="panel__body source-content"><p class="field__hint panel-caption">이번 커밋에 담을 변경을 골라 보세요.</p><form id="file-form"><label class="field__label" for="file-path">파일 편집</label><input class="input" id="file-path" value=".gitignore" aria-label="편집할 파일 경로"><button class="button button--secondary" type="submit">열기</button></form><div id="staged-list"></div><div id="worktree-list"></div></div>
+          <form id="commit-form" class="commit-form"><label class="sr-only" for="commit-message">커밋 메시지</label><textarea class="input" id="commit-message" placeholder="커밋 메시지를 입력하세요" rows="3" maxlength="4000"></textarea><button id="commit-button" class="button button--primary commit-button" type="submit">✓ 커밋하기</button></form>
         </section>
-        <section class="panel graph-panel" aria-labelledby="graph-title"><header class="panel-header"><h2 id="graph-title"><span aria-hidden="true">⌘</span> 커밋 그래프</h2><span id="commit-count" class="muted"></span></header><div class="graph-content"><div id="head-label" class="head-label"></div><ol id="commit-graph" class="commit-graph"></ol><div class="graph-note"><span class="graph-dot"></span> 한 점이 하나의 커밋이에요.</div></div></section>
-        <section class="terminal-panel" aria-labelledby="terminal-title"><header class="terminal-header"><h2 id="terminal-title"><span aria-hidden="true">›_</span> 터미널</h2><span class="terminal-local"><span></span> 로컬 실습</span><button id="clear-terminal" class="terminal-clear" aria-label="터미널 출력 지우기">지우기</button></header><div id="terminal-output" class="terminal-output" role="log" aria-live="polite" aria-relevant="additions"></div><form id="terminal-form" class="terminal-form"><span class="prompt" aria-hidden="true">❯</span><label class="sr-only" for="terminal-input">Git 명령어</label><input id="terminal-input" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="git status" aria-describedby="terminal-help"><button type="submit" class="terminal-submit" aria-label="명령어 실행">↵</button></form><div id="terminal-help" class="terminal-help"><span>명령어를 입력하고 Enter</span><span>↑ ↓ 이전 명령</span></div></section>
+        <section class="panel graph-panel" aria-labelledby="graph-title"><header class="panel__header"><h2 id="graph-title" class="panel__title"><span aria-hidden="true">⌘</span> 커밋 그래프</h2><span id="commit-count" class="chip"></span></header><div class="panel__body graph-content"><div id="head-label" class="chip head-label"></div><ol id="commit-graph" class="commit-graph"></ol><div class="graph-note"><span class="graph-dot"></span> 한 점이 하나의 커밋이에요.</div></div></section>
+        <section class="panel panel--terminal terminal-panel" aria-labelledby="terminal-title"><header class="panel__header"><h2 id="terminal-title" class="panel__title"><span aria-hidden="true">›_</span> 터미널</h2><span class="terminal-local"><span></span> 로컬 실습</span><button id="clear-terminal" class="button button--quiet terminal-clear" aria-label="터미널 출력 지우기">지우기</button></header><div id="terminal-output" class="terminal-output" role="log" aria-live="polite" aria-relevant="additions"></div><form id="terminal-form" class="terminal-form"><span class="terminal-output__prompt prompt" aria-hidden="true">❯</span><label class="sr-only" for="terminal-input">Git 명령어</label><input id="terminal-input" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="git status" aria-describedby="terminal-help"><button type="submit" class="button button--secondary button--icon terminal-submit" aria-label="명령어 실행">↵</button></form><div id="terminal-help" class="terminal-help"><span>명령어를 입력하고 Enter</span><span>↑ ↓ 이전 명령</span></div></section>
       </div>
     </main>
     <footer class="page-footer"><span>YOUR REPO. YOUR PACE.</span><span>버튼도, 명령어도. 같은 Git을 배웁니다.</span><span>새로고침하면 새 실습으로 시작합니다.</span></footer>
-    <dialog id="file-dialog"><form method="dialog"><h2 id="file-dialog-title"></h2><button class="icon-button" aria-label="파일 닫기">×</button></form><pre id="file-content"></pre></dialog>
-    <dialog id="edit-dialog" aria-labelledby="edit-title"><form method="dialog"><h2 id="edit-title"></h2><label for="edit-content">내용</label><textarea id="edit-content" rows="18" cols="80" spellcheck="false"></textarea><div><button value="cancel">취소</button><button value="save">저장</button></div></form></dialog>`;
+    <dialog id="file-dialog"><form method="dialog"><h2 id="file-dialog-title"></h2><button class="button button--secondary button--icon" aria-label="파일 닫기">×</button></form><pre id="file-content"></pre></dialog>
+    <dialog id="edit-dialog" aria-labelledby="edit-title"><form method="dialog"><h2 id="edit-title"></h2><label for="edit-content">내용</label><textarea class="input" id="edit-content" rows="18" cols="80" spellcheck="false"></textarea><div><button class="button button--secondary" value="cancel">취소</button><button class="button button--primary" value="save">저장</button></div></form></dialog>`;
 
   const get = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
   const catalog = loadLessons();
@@ -130,7 +130,7 @@ export function mountApp(root: HTMLElement): void {
     if (signature === lastHintSignature) return;
     lastHintSignature = signature;
     get('hints').replaceChildren(...hints.map((hint, index) => {
-      const card = el('div', 'hint');
+      const card = el('div', 'feedback feedback--hint hint');
       card.append(el('strong', '', `힌트 ${index + 1}`), prose(hint.say));
       return card;
     }));
@@ -139,26 +139,26 @@ export function mountApp(root: HTMLElement): void {
   function renderFiles(target: string, title: string, paths: string[], staged: boolean) {
     const list = get(target);
     const heading = el('div', 'file-group-heading');
-    heading.append(el('h3', '', title), el('span', 'count-badge', String(paths.length)));
+    heading.append(el('h3', '', title), el('span', 'chip', String(paths.length)));
     list.replaceChildren(heading);
     if (!paths.length) list.append(el('p', 'empty-files', staged ? '아직 담긴 변경이 없어요.' : '남은 변경이 없어요.'));
     for (const path of paths) {
-      const row = el('div', 'file-row');
+      const row = el('div', 'list-row file-row');
       const status = runner!.state.status.find(([name]) => name === path);
       const kind = status?.[2] === 0 ? 'D' : status?.[1] === 0 ? 'U' : 'M';
-      const file = el('button', 'file-name', path);
+      const file = el('button', 'button button--quiet list-row__label file-name', path);
       file.title = `${path} 파일 보기`;
       file.onclick = () => void action(async () => {
         get('file-dialog-title').textContent = path;
         get('file-content').textContent = status?.[2] === 0 ? '이 파일은 작업 폴더에서 삭제되었습니다.' : await runner!.repo.readFile(path);
         get<HTMLDialogElement>('file-dialog').showModal();
       });
-      const toggle = el('button', 'file-action', staged ? '−' : '+');
+      const toggle = el('button', 'button button--secondary button--icon file-action', staged ? '−' : '+');
       toggle.setAttribute('aria-label', `${path} ${staged ? '스테이징 해제' : '스테이징'}`);
       toggle.title = staged ? '스테이징 해제 · 내용은 유지' : '스테이징';
       toggle.disabled = busy || runner!.complete || runner!.unsupported;
       toggle.onclick = () => void action(() => staged ? runner!.unstage(path) : runner!.stage(path));
-      const badge = el('span', `file-status ${kind === 'U' ? 'untracked' : ''}`, kind);
+      const badge = el('span', `badge badge--${staged ? 'staged' : kind === 'U' ? 'untracked' : 'modified'}`, kind);
       badge.setAttribute('aria-label', kind === 'U' ? '새 파일' : kind === 'D' ? '삭제' : '수정');
       row.append(el('span', 'file-icon', '≡'), file, badge, toggle);
       list.append(row);
@@ -185,7 +185,7 @@ export function mountApp(root: HTMLElement): void {
       if (runner.skipped.length) {
         get('instructions').append(el('p', 'unsupported-message', `${runner.skipped.length}개 단계는 준비 중이라 건너뛰었어요. 실습 통과로 기록하지 않았습니다.`));
       } else {
-        const summary = el('div', 'completion-summary');
+        const summary = el('div', 'card completion-summary');
         summary.append(el('strong', '', `${total} / ${total} 단계 통과`), el('span', '', `커밋 ${state.commits.length}개 · 남겨 둔 변경 ${state.worktree.length}개`));
         get('instructions').append(summary);
       }
@@ -202,8 +202,8 @@ export function mountApp(root: HTMLElement): void {
     }
     const assessment = get('assessment'); assessment.replaceChildren();
     if (runner.assessment) {
-      if (runner.assessment.passed) assessment.append(el('p', 'success-feedback', '✓ 원하는 상태가 되었어요. 다음으로 넘어가세요.'));
-      else runner.assessment.failures.forEach((failure) => assessment.append(el('p', 'failure-feedback', explainFailure(failure))));
+      if (runner.assessment.passed) assessment.append(el('p', 'feedback feedback--success', '✓ 원하는 상태가 되었어요. 다음으로 넘어가세요.'));
+      else runner.assessment.failures.forEach((failure) => assessment.append(el('p', 'feedback feedback--error', explainFailure(failure))));
     }
     get('check-button').textContent = runner.complete ? '다시 연습하기 ↻' : runner.unsupported ? '준비 중인 단계 건너뛰기 →' : runner.assessment?.passed ? runner.currentStep === total - 1 ? '실습 마치기 ✓' : '다음 단계 →' : '상태 확인 →';
     get<HTMLButtonElement>('hint-button').disabled = busy || runner.complete || runner.unsupported;
@@ -236,7 +236,7 @@ export function mountApp(root: HTMLElement): void {
       history = []; historyIndex = 0; commandInput.value = ''; messageInput.value = ''; lastHintSignature = ''; get('hints').replaceChildren();
       get('terminal-output').replaceChildren();
       output('Git Learn에 오신 것을 환영합니다.\n명령어와 소스 컨트롤 버튼은 같은 저장소를 바꿉니다.', 'terminal-welcome');
-      output('먼저 git status로 현재 상태를 살펴보세요.', 'terminal-muted');
+      output('먼저 git status로 현재 상태를 살펴보세요.', 'terminal-output__muted');
       get('app-status').textContent = catalog.errors.length ? `${catalog.errors.length}개 레슨은 형식을 확인하는 중입니다.` : '';
     } catch (error) { runner = undefined; get('app-status').textContent = `레슨을 열지 못했어요. ${error instanceof Error ? error.message : String(error)}`; }
     finally { lock(false); render(); }
@@ -260,8 +260,8 @@ export function mountApp(root: HTMLElement): void {
     event.preventDefault(); const command = commandInput.value.trim();
     if (!command || busy || !runner || runner.complete || runner.unsupported) return;
     commandInput.value = ''; history.push(command); historyIndex = history.length;
-    output(`❯ ${command}`, 'terminal-command');
-    void action(async () => { const result = await runner!.execute(command, edit); if (result) output(result, result.startsWith('오류:') ? 'terminal-error' : ''); }).then(() => commandInput.focus());
+    output(`❯ ${command}`, 'terminal-output__prompt');
+    void action(async () => { const result = await runner!.execute(command, edit); if (result) output(result, result.startsWith('오류:') ? 'terminal-output__error' : ''); }).then(() => commandInput.focus());
   };
   commandInput.oninput = () => runner?.touch(); messageInput.oninput = () => runner?.touch();
   commandInput.onkeydown = (event) => {

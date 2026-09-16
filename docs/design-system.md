@@ -20,7 +20,7 @@
 
 ## 파일과 연결 순서
 
-`tokens.css`, `base.css`, `components.css` 순으로 로드한다. Vite 진입점에서 같은 순서로 import하거나 HTML의 stylesheet 링크로 연결할 수 있다. 이 작업은 `src/ui`를 열거나 수정하지 않았으므로 실제 앱 연결은 UI 담당 범위다. `preview.html`은 별도 레슨 엔진 없이 작동하는 스타일 확인 페이지다. 주요 버튼의 피드백 예시, 칩 선택, 테마 전환만 동작하며 Git 실행을 흉내 내거나 저장소 성공을 주장하지 않는다.
+`tokens.css`, `base.css`, `components.css` 순으로 로드한다. Vite 진입점에서 같은 순서로 import하거나 HTML의 stylesheet 링크로 연결할 수 있다. `src/ui/app.ts`도 이 순서로 가져온 뒤 `src/ui/style.css`의 레슨 전용 배치를 적용한다. 앱 스타일에는 별도 토큰 선언이 없으며 색·서체·간격·라운드·그림자는 공통 토큰을 소비한다. `preview.html`은 별도 레슨 엔진 없이 작동하는 스타일 확인 페이지다. 주요 버튼의 피드백 예시, 칩 선택, 테마 전환만 동작하며 Git 실행을 흉내 내거나 저장소 성공을 주장하지 않는다.
 
 테마 속성은 문서 루트 `html`에 둔다. 속성이 없으면 운영체제 설정을 따르고, `data-theme="light"`와 `data-theme="dark"`는 각각 명시적으로 덮어쓴다. 모든 토큰은 먼저 `:root`에 선언한다. 다크에서 달라지는 회색·의미색·그림자는 `prefers-color-scheme: dark`와 `:root[data-theme='dark']`에 동일하게 선언하며, 나머지는 루트 값을 공유한다. `--grey-*`는 테마 적응형 역할 팔레트여서 다크의 숫자는 절대 밝기 순서가 아니다. 실제 UI는 색 원시값보다 `--color-*` 의미 토큰을 사용한다.
 
@@ -114,7 +114,7 @@
 
 시선은 레슨의 현재 할 일에서 파일 상태, 터미널, 그래프로 이동한다. 블루는 현재 단계와 대표 행동만 강조하고 Git 의미색은 작은 상태 배지에 국한한다. 그래프의 브랜치를 여러 브랜드색으로 칠하지 말고 라벨과 선 모양으로 구분한다. 터미널의 어두운 바탕은 실제 작업 영역을 찾는 고정된 기준이다.
 
-좁은 화면에서는 글자를 줄여 네 칸을 억지로 넣지 않는다. 독립 미리보기는 760px 이하에서 동일한 읽기 순서로 네 패널을 세로 배치한다. 실제 앱의 반응형 전환과 패널별 스크롤은 UI 담당이 적용한다. 확대해도 행의 높이는 고정하지 않아 한글과 긴 파일명이 잘리지 않게 한다.
+좁은 화면에서는 글자를 줄여 네 칸을 억지로 넣지 않는다. 독립 미리보기는 760px 이하에서 동일한 읽기 순서로 네 패널을 세로 배치한다. 실제 앱도 760px 이하에서 레슨 → 소스 컨트롤 → 그래프 → 터미널 순으로 쌓는다. 1200px 이하에서는 오른쪽 작업 영역이 한 열로 바뀌고, 터미널 출력은 내부 세로 스크롤을 유지한다. 확대해도 행의 높이는 고정하지 않아 한글과 긴 파일명이 잘리지 않게 한다.
 
 본문 4.5:1, 조작 경계와 포커스 3:1 이상을 목표로 한다. 색 대비는 실제로 맞닿는 전경·배경 쌍을 확인하며, 전체 색끼리 임의 조합해도 통과한다는 뜻은 아니다. 링크는 밑줄, 현재 단계는 시작선과 텍스트, 오류는 메시지와 굵은 테두리를 함께 쓴다.
 
@@ -122,7 +122,7 @@
 
 [TDS 색상 문서](https://tossmini-docs.toss.im/tds-mobile/foundation/colors/)의 회색과 블루 계열 구성을 참고했다. 이 문서의 수치와 고밀도 적용 규칙은 이 프로젝트에서 정한 값이다. [Pretendard 공식 웹폰트 안내](https://github.com/orioncactus/pretendard/blob/main/packages/pretendard/README.md)의 jsDelivr v1.3.9 동적 서브셋 경로를 사용했다.
 
-## 검증 기록
+## 독립 미리보기 검증 기록 (앱 통합 이전)
 
 2026-09-16, 설치된 Google Chrome을 `agent-browser`의 독립 세션으로 실행해 `http://127.0.0.1:4176/src/styles/preview.html`을 확인했다. 공용 Playwright MCP는 다른 브라우저 세션 사용 중 오류로 열리지 않았고, agent-browser의 기본 Chromium 파일도 없어서 설치된 Chrome 실행 경로를 지정했다. 다른 작업의 브라우저나 서버는 종료하지 않았다.
 
@@ -134,4 +134,25 @@
 
 운영체제 다크 설정에서 시스템 선택은 다크를, 명시적 라이트 선택은 라이트를 표시했다. Tab 이동 시 실제 포커스 outline은 블루 실선 3px이었다. 피드백 버튼으로 토스트가 열리고 닫기 버튼으로 닫혔으며, 선택 칩은 `aria-pressed`가 true에서 false로 바뀌었다. `prefers-reduced-motion` 활성화에서 토큰 0ms와 버튼 transition 0s를 확인했다. 390px 화면에서 한 열로 전환되었고 문서 가로 넘침은 없었다. 화면 리더 실기 검증은 실행하지 않았다.
 
-`npm test`는 현재 공유 작업 트리의 18건을 모두 통과했다(기존 엔진 테스트 10건 포함, 새 테스트 작성 없음). `npm run build`도 TypeScript 검사와 Vite 빌드를 통과했다. 독립 미리보기는 개발 서버 URL로 확인하며, Vite의 별도 HTML 빌드 진입점 등록은 이 변경에 포함하지 않는다. 실제 앱의 CSS import와 네 패널 적용은 UI 담당의 별도 통합 검증 대상이다.
+`npm test`는 현재 공유 작업 트리의 18건을 모두 통과했다(기존 엔진 테스트 10건 포함, 새 테스트 작성 없음). `npm run build`도 TypeScript 검사와 Vite 빌드를 통과했다. 독립 미리보기는 개발 서버 URL로 확인하며, Vite의 별도 HTML 빌드 진입점 등록은 이 변경에 포함하지 않는다. 이 기록은 당시 독립 미리보기 범위이며, 현재 실제 앱 통합 검증은 아래 기록으로 대체한다.
+
+
+## 실제 앱 통합과 검증 (2026-09-16)
+
+판정: 현재 실제 앱은 `src/styles/preview-light.png`와 같은 디자인 언어로 보인다. 블루 행동색, 중성 회색, Pretendard 본문, 16px 패널 라운드와 옅은 그림자를 공유하며, 실제 긴 레슨과 커밋 이력을 읽기 위해 미리보기의 2×2 대신 왼쪽 레슨·오른쪽 소스/그래프·그 아래 터미널 배치를 유지했다.
+
+`src/ui/style.css`의 청록·자체 다크 팔레트와 중복 기본 스타일을 제거했다. 앱 마크업은 공통 `.panel`, `.panel__header`, `.panel__body`, `.button`, `.input`, `.badge`, `.chip`, `.list-row`, `.progress`, `.card`를 사용한다. 스테이징 영역의 배지는 초록, 수정은 황갈색, 미추적은 중성 점선이며 기존 M/U/D 표기와 접근성 이름을 유지한다. 충돌 토큰과 이중 테두리 배지는 그대로 보존한다. 앱 파일 목록에는 원래 충돌 전용 상태 분류가 없으므로 이번 시각 작업에서 새로운 판별 로직을 만들지 않았다. 충돌·명령 실패는 기존 오류 출력 경로에서 붉은 안내를 받는다.
+
+공통 컴포넌트에 `.button--icon`, `.badge--accent`, `.feedback--success/error/hint`, 코드 블록·인라인 코드, 다이얼로그·백드롭, 스킵 링크를 보강했다. 터미널은 두 테마 모두 먹색이며 버튼·입력·포커스도 터미널 전용 색을 소비한다. 새 토큰은 `--color-terminal-error: #ffabb2`, `--color-terminal-success: #8eddb1`, `--color-backdrop: rgb(12 19 25 / 67%)`이며 모두 테마 불변이다. 앱의 엔진 호출, 이벤트 처리, 채점, 레슨 콘텐츠는 바꾸지 않았다.
+
+가정: 디자인 언어 적용은 정적 시안의 좌표 복제가 아니라 실제 콘텐츠를 같은 시각 규칙으로 표시하는 것으로 해석했다. 따라서 긴 설명은 잘라 숨기지 않고, 긴 브랜치는 헤더에서 줄을 나누거나 말줄임하며 그래프 HEAD 라벨에서 다시 읽을 수 있게 했다. 390px에서는 드롭다운을 별도 행에 놓고 44px 조작 높이와 본문 15px를 유지한다.
+
+Playwright의 실제 Chromium 브라우저에서 `http://127.0.0.1:4173/`를 열어 확인했다. `staging-basics`는 + 버튼·커밋 입력·실제 채점으로 3/3단계를 완료했다. 기존 `src/ui/evidence/play-lessons.js`를 수정 없이 읽어 캡처 경로만 이번 소유 범위로 바꿔 실행했고, 첫 브랜치 4/4, 첫 커밋 5/5, 커밋 쪼개기 4/4, 복구 4/4가 모두 완료되었다. 채점 상태나 완료 DOM을 합성하지 않았다. 이 재생에서 pageerror와 console error는 0건이었다. 기존 테스트 29/29 통과(실패·건너뜀 0), `npm run build`의 TypeScript·Vite 빌드도 통과했으며 새 테스트나 의존성은 추가하지 않았다.
+
+라이트·다크 1440×1100과 모바일 양쪽 테마 390×1100에서 진행·완료 화면을 저장하고 이미지를 직접 확인했다. 진행 화면에는 힌트, 미충족 조건의 붉은 안내, 잘못된 브랜치 명령의 터미널 오류가 들어 있다. 완료 화면은 사라진 커밋 복구 레슨의 실제 4/4 통과와 6개 커밋을 보여 준다. 네 캡처 조건 모두 `scrollWidth === clientWidth`였으며, 스크롤바를 제외한 폭은 데스크톱 1425px·모바일 375px다. 터미널의 계산 배경색은 모두 `rgb(12, 19, 25)`였다.
+
+브라우저에서 보이는 직접 텍스트 노드의 계산 전경색과 가장 가까운 불투명 배경을 비교했다. 진행 화면의 최소 대비는 라이트 4.77:1, 다크 5.58:1로 4.5:1 미만이 없었다. 키보드 Tab 이동 시 힌트 버튼의 실제 포커스는 3px 실선, offset 3px였고, reduced-motion에서는 버튼 transition이 0s였다. Pretendard·IBM Plex Mono의 FontFace는 loaded였다. 드롭다운으로 다섯 레슨을 실제 전환했고, 편집 모달과 잘못된 파일 경로의 앱 오류도 390px에서 확인했다. 화면 리더 실기·다른 브라우저·전체 접근성 인증은 수행하지 않았다.
+
+진행 화면은 [라이트](../src/styles/app-light-progress.png), [다크](../src/styles/app-dark-progress.png), [390px 라이트](../src/styles/app-mobile-light-progress.png), [390px 다크](../src/styles/app-mobile-dark-progress.png)다. 완료 화면은 [라이트](../src/styles/app-light-completed.png), [다크](../src/styles/app-dark-completed.png), [390px 라이트](../src/styles/app-mobile-light-completed.png), [390px 다크](../src/styles/app-mobile-dark-completed.png)다.
+
+추가 증거는 [스테이징·수정·미추적 배지](../src/styles/app-staged.png), [390px 편집기](../src/styles/app-mobile-dark-editor.png), [390px 앱 오류](../src/styles/app-mobile-light-error.png), [첫 브랜치 완료](../src/styles/app-first-branch-completed.png), [첫 커밋 완료](../src/styles/app-first-commit-convention-completed.png), [커밋 분리 완료](../src/styles/app-split-commits-completed.png), [복구 완료](../src/styles/app-force-push-recovery-completed.png)다. 기존 비교용 이미지와 재생 스크립트는 덮어쓰지 않았다.
